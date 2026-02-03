@@ -1,0 +1,225 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { stageChangesService } from '@/services';
+import { useAuthContext } from '@/store/AuthContext';
+import { Button, Card, CardHeader, CardContent, Badge, Modal, Textarea } from '@/components/ui';
+import { stageChangeStatusColors, formatDateTime } from '@/lib/utils';
+import type { StageChangeRequest, ReviewStageChangeDto } from '@/types';
+
+export default function StageChangesPage() {
+  const { isAdmin } = useAuthContext();
+  const [requests, setRequests] = useState<StageChangeRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedRequest, setSelectedRequest] = useState<StageChangeRequest | null>(null);
+  const [reviewForm, setReviewForm] = useState<ReviewStageChangeDto>({ status: 'APROBADO', reviewComment: '' });
+  const [saving, setSaving] = useState(false);
+
+  const loadRequests = async () => {
+    try {
+      const data = isAdmin
+        ? await stageChangesService.getPending()
+        : await stageChangesService.getMyRequests();
+      setRequests(data);
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRequests();
+  }, [isAdmin]);
+
+  const handleReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedRequest) return;
+    setSaving(true);
+    try {
+      await stageChangesService.review(selectedRequest.id, reviewForm);
+      setSelectedRequest(null);
+      setReviewForm({ status: 'APROBADO', reviewComment: '' });
+      loadRequests();
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-accent-900">
+          {isAdmin ? 'Solicitudes pendientes' : 'Mis solicitudes'}
+        </h1>
+        <p className="text-accent-500">
+          {isAdmin ? 'Revisa y aprueba cambios de etapa' : 'Historial de tus solicitudes de cambio'}
+        </p>
+      </div>
+
+      {requests.length === 0 ? (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <svg className="w-16 h-16 text-accent-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+            <h3 className="text-lg font-medium text-accent-900 mb-1">Sin solicitudes</h3>
+            <p className="text-accent-500">No hay solicitudes de cambio de etapa</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {requests.map((request) => (
+            <Card key={request.id}>
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="font-semibold text-accent-900">{request.activity?.title}</h3>
+                      <Badge className={stageChangeStatusColors[request.status]}>{request.status}</Badge>
+                    </div>
+                    <p className="text-sm text-accent-500 mb-3">{request.description}</p>
+                    <div className="flex items-center gap-4 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="text-accent-500">De:</span>
+                        <span
+                          className="px-2 py-1 rounded text-xs font-medium"
+                          style={{ backgroundColor: request.fromStage?.color || '#e5e5e5' }}
+                        >
+                          {request.fromStage?.name}
+                        </span>
+                      </div>
+                      <svg className="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      </svg>
+                      <div className="flex items-center gap-2">
+                        <span className="text-accent-500">A:</span>
+                        <span
+                          className="px-2 py-1 rounded text-xs font-medium"
+                          style={{ backgroundColor: request.toStage?.color || '#e5e5e5' }}
+                        >
+                          {request.toStage?.name}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-3 text-xs text-accent-400">
+                      Solicitado por {request.requestedBy?.name} • {formatDateTime(request.createdAt)}
+                    </div>
+                  </div>
+                  {isAdmin && request.status === 'PENDIENTE' && (
+                    <Button size="sm" onClick={() => setSelectedRequest(request)}>
+                      Revisar
+                    </Button>
+                  )}
+                </div>
+
+                {request.reviewComment && (
+                  <div className="mt-4 p-3 bg-accent-50 rounded-lg">
+                    <p className="text-xs text-accent-500 mb-1">Comentario del revisor:</p>
+                    <p className="text-sm text-accent-700">{request.reviewComment}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <Modal
+        isOpen={!!selectedRequest}
+        onClose={() => setSelectedRequest(null)}
+        title="Revisar solicitud"
+        size="lg"
+      >
+        <form onSubmit={handleReview} className="space-y-4">
+          <div className="p-4 bg-accent-50 rounded-lg">
+            <p className="font-medium text-accent-900 mb-2">{selectedRequest?.activity?.title}</p>
+            <p className="text-sm text-accent-600">{selectedRequest?.description}</p>
+          </div>
+
+          <div className="flex gap-4">
+            <label className="flex-1">
+              <input
+                type="radio"
+                name="status"
+                value="APROBADO"
+                checked={reviewForm.status === 'APROBADO'}
+                onChange={() => setReviewForm({ ...reviewForm, status: 'APROBADO' })}
+                className="sr-only peer"
+              />
+              <div className="p-4 border-2 rounded-lg cursor-pointer peer-checked:border-primary-500 peer-checked:bg-primary-50 border-accent-200 hover:border-accent-300 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-medium text-accent-900">Aprobar</p>
+                    <p className="text-sm text-accent-500">La actividad cambiará de etapa</p>
+                  </div>
+                </div>
+              </div>
+            </label>
+
+            <label className="flex-1">
+              <input
+                type="radio"
+                name="status"
+                value="RECHAZADO"
+                checked={reviewForm.status === 'RECHAZADO'}
+                onChange={() => setReviewForm({ ...reviewForm, status: 'RECHAZADO' })}
+                className="sr-only peer"
+              />
+              <div className="p-4 border-2 rounded-lg cursor-pointer peer-checked:border-secondary-500 peer-checked:bg-secondary-50 border-accent-200 hover:border-accent-300 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                    <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-medium text-accent-900">Rechazar</p>
+                    <p className="text-sm text-accent-500">La actividad permanecerá en su etapa</p>
+                  </div>
+                </div>
+              </div>
+            </label>
+          </div>
+
+          <Textarea
+            id="reviewComment"
+            label="Comentario (opcional)"
+            value={reviewForm.reviewComment || ''}
+            onChange={(e) => setReviewForm({ ...reviewForm, reviewComment: e.target.value })}
+            placeholder="Agrega un comentario sobre tu decisión..."
+            rows={3}
+          />
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button type="button" variant="ghost" onClick={() => setSelectedRequest(null)}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              loading={saving}
+              variant={reviewForm.status === 'APROBADO' ? 'primary' : 'danger'}
+            >
+              {reviewForm.status === 'APROBADO' ? 'Aprobar' : 'Rechazar'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+}
