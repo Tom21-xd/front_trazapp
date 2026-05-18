@@ -1,36 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# front_trazapp — Web App / PWA (Next.js 16 + React 19 + Tailwind v4)
 
-## Getting Started
+Interfaz de TrazApp: gestión de proyectos, tablero Kanban arrastrable,
+comentarios con adjuntos, solicitudes de cambio de etapa. Instalable como
+PWA en Android e iPhone.
 
-First, run the development server:
+## Requisitos
+
+- Node.js 20+
+- El backend `back_trazapp` corriendo (por defecto en `http://localhost:3000`)
+
+## Puesta en marcha
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+
+cp .env.example .env.local
+#   NEXT_PUBLIC_API_URL  -> URL del backend con /api  (def. http://localhost:3000/api)
+#   NEXT_PUBLIC_APP_URL  -> URL pública del front     (def. http://localhost:3001)
+
+npm run dev      # http://localhost:3001  (el front corre en 3001, el back en 3000)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+> El backend usa el puerto **3000** y el frontend el **3001** para evitar
+> colisión. Los scripts `dev`/`start` ya fijan `-p 3001`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Script | Descripción |
+|---|---|
+| `npm run dev` | Desarrollo en `:3001` |
+| `npm run build` | Build de producción |
+| `npm start` | Servir build en `:3001` |
+| `npm run lint` | ESLint |
 
-## Learn More
+## PWA (instalable Android + iPhone)
 
-To learn more about Next.js, take a look at the following resources:
+- `manifest.json` con iconos PNG reales (192/512/maskable) + `apple-touch-icon`
+  180×180.
+- Meta tags iOS (`apple-mobile-web-app-*`), `viewport-fit=cover` y safe-area
+  insets para iPhone con notch.
+- Service worker resiliente (cache versionado, no cachea respuestas con error
+  ni descargas protegidas).
+- `PWAInstall` muestra el prompt en Android (Chrome/Edge) e instrucciones
+  manuales en iOS/iPadOS (Safari → Compartir → "Añadir a inicio").
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Para probar la instalación se requiere HTTPS o `localhost`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Notas
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Sesión basada en JWT en `localStorage`; refresh automático ante 401.
+- Adjuntos: se suben vía `multipart/form-data` y se descargan como blob
+  autenticado (`filesService`).
+- El tablero respeta permisos: un administrador mueve tarjetas directo; un
+  empleado genera una **solicitud de cambio de etapa** para aprobación.

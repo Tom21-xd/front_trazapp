@@ -18,6 +18,9 @@ export function Avatar({ src, name, size = 'md', className }: AvatarProps) {
 
   if (src) {
     return (
+      // Avatares pueden venir de URLs externas arbitrarias; next/image
+      // exigiría configurar remotePatterns. <img> es la opción correcta aquí.
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={src}
         alt={name}

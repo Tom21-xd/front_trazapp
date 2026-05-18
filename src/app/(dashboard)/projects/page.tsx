@@ -1,46 +1,63 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { projectsService } from '@/services';
+import { projectsService, projectTypesService } from '@/services';
 import { useAuthContext } from '@/store/AuthContext';
-import { Button, Card, CardContent, Badge, Modal, Input, Textarea, Select } from '@/components/ui';
+import { Button, Card, CardContent, Badge, Modal, Input, Textarea, Select, Pagination, useToast } from '@/components/ui';
 import { statusColors, formatDate } from '@/lib/utils';
-import type { Project, ProjectStatus } from '@/types';
+import { ProjectStatus, type Project, type PageMeta, type ProjectType } from '@/types';
 
 export default function ProjectsPage() {
   const { isAdmin } = useAuthContext();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [meta, setMeta] = useState<PageMeta | null>(null);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ name: '', description: '', status: 'EN_PROGRESO' as ProjectStatus });
+  const [formData, setFormData] = useState({ name: '', description: '', status: ProjectStatus.EN_PROGRESO, projectTypeId: '' });
+  const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
   const [saving, setSaving] = useState(false);
+  const toast = useToast();
 
-  const loadProjects = async () => {
+  useEffect(() => {
+    projectTypesService
+      .getAll()
+      .then(setProjectTypes)
+      .catch(() => setProjectTypes([]));
+  }, []);
+
+  const loadProjects = useCallback(async () => {
     try {
-      const data = await projectsService.getAll();
-      setProjects(data);
-    } catch (error) {
-      console.error('Error:', error);
+      const res = await projectsService.getPage({ page });
+      setProjects(res.data);
+      setMeta(res.meta);
+    } catch {
+      toast.error('No se pudieron cargar los proyectos');
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, toast]);
 
   useEffect(() => {
     loadProjects();
-  }, []);
+  }, [loadProjects]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await projectsService.create(formData);
+      const { projectTypeId, ...rest } = formData;
+      await projectsService.create({
+        ...rest,
+        ...(projectTypeId ? { projectTypeId } : {}),
+      });
       setShowModal(false);
-      setFormData({ name: '', description: '', status: 'EN_PROGRESO' });
+      setFormData({ name: '', description: '', status: ProjectStatus.EN_PROGRESO, projectTypeId: '' });
+      toast.success('Proyecto creado');
       loadProjects();
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo crear el proyecto');
     } finally {
       setSaving(false);
     }
@@ -108,6 +125,10 @@ export default function ProjectsPage() {
         </div>
       )}
 
+      {meta && projects.length > 0 && (
+        <Pagination meta={meta} onPageChange={setPage} />
+      )}
+
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Nuevo proyecto" size="lg">
         <form onSubmit={handleCreate} className="space-y-4">
           <Input
@@ -134,6 +155,17 @@ export default function ProjectsPage() {
               { value: 'PAUSADO', label: 'Pausado' },
               { value: 'COMPLETADO', label: 'Completado' },
               { value: 'CANCELADO', label: 'Cancelado' },
+            ]}
+          />
+          <Select
+            id="projectType"
+            label="Tipo de proyecto (opcional)"
+            value={formData.projectTypeId}
+            onChange={(e) => setFormData({ ...formData, projectTypeId: e.target.value })}
+            placeholder="Sin tipo"
+            options={[
+              { value: '', label: 'Sin tipo' },
+              ...projectTypes.map((t) => ({ value: t.id, label: t.name })),
             ]}
           />
           <div className="flex justify-end gap-3 pt-4">

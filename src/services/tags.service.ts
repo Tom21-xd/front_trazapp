@@ -1,8 +1,21 @@
 import api from '@/lib/api';
-import type { CreateTagDto, Tag } from '@/types';
+import { toArray, toPage } from '@/lib/pagination';
+import type { CreateTagDto, Tag, Paginated } from '@/types';
 
 export const tagsService = {
-  getAll: () => api.get<Tag[]>('/tags'),
+  // Las etiquetas alimentan selects/filtros → lista completa.
+  getAll: async (): Promise<Tag[]> =>
+    toArray<Tag>(await api.get('/tags', { all: 'true' })),
+
+  getPage: async (
+    params: { page?: number; limit?: number } = {},
+  ): Promise<Paginated<Tag>> =>
+    toPage<Tag>(
+      await api.get('/tags', {
+        page: params.page ?? 1,
+        limit: params.limit ?? 20,
+      }),
+    ),
 
   getById: (id: string) => api.get<Tag>(`/tags/${id}`),
 

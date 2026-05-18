@@ -1,32 +1,36 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { usersService } from '@/services';
-import { Button, Card, CardHeader, CardContent, Badge, Avatar, Modal, Input, Select } from '@/components/ui';
+import { Button, Card, CardHeader, CardContent, Badge, Avatar, Modal, Input, Select, Pagination, useToast } from '@/components/ui';
 import { formatDateTime } from '@/lib/utils';
-import type { User, Role } from '@/types';
+import { Role, type User, type PageMeta } from '@/types';
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [meta, setMeta] = useState<PageMeta | null>(null);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ name: '', email: '', password: '', phone: '', role: 'EMPLEADO' as Role });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', phone: '', role: Role.EMPLEADO });
   const [saving, setSaving] = useState(false);
+  const toast = useToast();
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
-      const data = await usersService.getAll();
-      setUsers(data);
-    } catch (error) {
-      console.error('Error:', error);
+      const res = await usersService.getPage({ page });
+      setUsers(res.data);
+      setMeta(res.meta);
+    } catch {
+      toast.error('No se pudieron cargar los usuarios');
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, toast]);
 
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, [loadUsers]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,10 +38,11 @@ export default function UsersPage() {
     try {
       await usersService.create(formData);
       setShowModal(false);
-      setFormData({ name: '', email: '', password: '', phone: '', role: 'EMPLEADO' });
+      setFormData({ name: '', email: '', password: '', phone: '', role: Role.EMPLEADO });
+      toast.success('Usuario creado');
       loadUsers();
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo crear el usuario');
     } finally {
       setSaving(false);
     }
@@ -51,8 +56,8 @@ export default function UsersPage() {
         await usersService.activate(user.id);
       }
       loadUsers();
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo actualizar el usuario');
     }
   };
 
@@ -81,11 +86,11 @@ export default function UsersPage() {
 
       <Card>
         <CardHeader>
-          <h2 className="text-lg font-semibold text-accent-900">{users.length} usuarios</h2>
+          <h2 className="text-lg font-semibold text-accent-900">{meta?.total ?? users.length} usuarios</h2>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-190">
               <thead className="bg-accent-50 border-b border-accent-200">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-accent-500 uppercase">Usuario</th>
@@ -133,6 +138,8 @@ export default function UsersPage() {
           </div>
         </CardContent>
       </Card>
+
+      {meta && <Pagination meta={meta} onPageChange={setPage} />}
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Nuevo usuario" size="lg">
         <form onSubmit={handleCreate} className="space-y-4">

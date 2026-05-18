@@ -9,7 +9,7 @@ import { priorityColors, statusColors, formatDate } from '@/lib/utils';
 import type { Project, Activity, StageChangeRequest } from '@/types';
 
 export default function DashboardPage() {
-  const { user, isAdmin } = useAuthContext();
+  const { isAdmin } = useAuthContext();
   const [projects, setProjects] = useState<Project[]>([]);
   const [myActivities, setMyActivities] = useState<Activity[]>([]);
   const [pendingRequests, setPendingRequests] = useState<StageChangeRequest[]>([]);
@@ -150,9 +150,9 @@ export default function DashboardPage() {
                     <p className="text-sm font-medium text-accent-900 truncate">{activity.title}</p>
                     <p className="text-xs text-accent-500">{activity.project?.name}</p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 shrink-0">
                     {activity.dueDate && (
-                      <span className="text-xs text-accent-500">{formatDate(activity.dueDate)}</span>
+                      <span className="text-xs text-accent-500 hidden sm:inline">{formatDate(activity.dueDate)}</span>
                     )}
                     <Badge className={priorityColors[activity.priority]}>{activity.priority}</Badge>
                   </div>
@@ -188,7 +188,7 @@ export default function DashboardPage() {
                     <p className="text-sm font-medium text-accent-900 truncate">{project.name}</p>
                     <p className="text-xs text-accent-500 truncate">{project.description}</p>
                   </div>
-                  <Badge className={statusColors[project.status]}>{project.status.replace('_', ' ')}</Badge>
+                  <Badge className={`${statusColors[project.status]} shrink-0`}>{project.status.replace('_', ' ')}</Badge>
                 </Link>
               ))}
             </div>

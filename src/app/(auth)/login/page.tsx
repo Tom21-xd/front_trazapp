@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { authService } from '@/services';
 
@@ -51,7 +50,8 @@ export default function LoginPage() {
           {/* Logo */}
           <div className="flex items-center gap-6">
             <div className="bg-white p-3 rounded-2xl shadow-2xl">
-              <Image
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src="/logo_normal.webp"
                 alt="Escudo Alcaldía de Florencia"
                 width={80}
@@ -135,12 +135,13 @@ export default function LoginPage() {
         </div>
 
         {/* Right - Form Panel */}
-        <div className="flex-1 lg:w-1/2 flex items-center justify-center p-6 lg:p-12">
+        <div className="flex-1 lg:w-1/2 flex items-center justify-center p-4 sm:p-6 lg:p-12 overflow-y-auto">
           <div className="w-full max-w-md">
             {/* Mobile Logo */}
             <div className="lg:hidden flex flex-col items-center mb-8">
               <div className="bg-white p-3 rounded-2xl shadow-xl mb-4">
-                <Image
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   src="/logo_normal.webp"
                   alt="Escudo Alcaldía de Florencia"
                   width={60}
@@ -164,7 +165,8 @@ export default function LoginPage() {
               <div className="p-8 lg:p-10">
                 <div className="text-center mb-8">
                   <div className="hidden lg:block mb-4">
-                    <Image
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
                       src="/Logohorizontal.png"
                       alt="Alcaldía de Florencia"
                       width={250}

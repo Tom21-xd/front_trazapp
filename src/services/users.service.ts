@@ -1,8 +1,20 @@
 import api from '@/lib/api';
-import type { CreateUserDto, User } from '@/types';
+import { toArray, toPage } from '@/lib/pagination';
+import type { CreateUserDto, User, Paginated } from '@/types';
 
 export const usersService = {
-  getAll: () => api.get<User[]>('/users'),
+  getAll: async (): Promise<User[]> =>
+    toArray<User>(await api.get('/users', { all: 'true' })),
+
+  getPage: async (
+    params: { page?: number; limit?: number } = {},
+  ): Promise<Paginated<User>> =>
+    toPage<User>(
+      await api.get('/users', {
+        page: params.page ?? 1,
+        limit: params.limit ?? 20,
+      }),
+    ),
 
   getById: (id: string) => api.get<User>(`/users/${id}`),
 

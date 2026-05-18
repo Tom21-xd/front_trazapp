@@ -1,36 +1,40 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { stageChangesService } from '@/services';
 import { useAuthContext } from '@/store/AuthContext';
-import { Button, Card, CardHeader, CardContent, Badge, Modal, Textarea } from '@/components/ui';
+import { Button, Card, CardContent, Badge, Modal, Textarea, useToast, Pagination } from '@/components/ui';
 import { stageChangeStatusColors, formatDateTime } from '@/lib/utils';
-import type { StageChangeRequest, ReviewStageChangeDto } from '@/types';
+import type { StageChangeRequest, ReviewStageChangeDto, PageMeta } from '@/types';
 
 export default function StageChangesPage() {
   const { isAdmin } = useAuthContext();
+  const toast = useToast();
   const [requests, setRequests] = useState<StageChangeRequest[]>([]);
+  const [meta, setMeta] = useState<PageMeta | null>(null);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState<StageChangeRequest | null>(null);
   const [reviewForm, setReviewForm] = useState<ReviewStageChangeDto>({ status: 'APROBADO', reviewComment: '' });
   const [saving, setSaving] = useState(false);
 
-  const loadRequests = async () => {
+  const loadRequests = useCallback(async () => {
     try {
-      const data = isAdmin
-        ? await stageChangesService.getPending()
-        : await stageChangesService.getMyRequests();
-      setRequests(data);
-    } catch (error) {
-      console.error('Error:', error);
+      const res = isAdmin
+        ? await stageChangesService.getPendingPage({ page })
+        : await stageChangesService.getMyRequestsPage({ page });
+      setRequests(res.data);
+      setMeta(res.meta);
+    } catch {
+      toast.error('No se pudieron cargar las solicitudes');
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAdmin, page, toast]);
 
   useEffect(() => {
     loadRequests();
-  }, [isAdmin]);
+  }, [loadRequests]);
 
   const handleReview = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,9 +44,10 @@ export default function StageChangesPage() {
       await stageChangesService.review(selectedRequest.id, reviewForm);
       setSelectedRequest(null);
       setReviewForm({ status: 'APROBADO', reviewComment: '' });
+      toast.success('Solicitud revisada correctamente');
       loadRequests();
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo revisar la solicitud');
     } finally {
       setSaving(false);
     }
@@ -59,10 +64,10 @@ export default function StageChangesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-accent-900">
+        <h1 className="text-xl lg:text-2xl font-bold text-accent-900">
           {isAdmin ? 'Solicitudes pendientes' : 'Mis solicitudes'}
         </h1>
-        <p className="text-accent-500">
+        <p className="text-sm lg:text-base text-accent-500">
           {isAdmin ? 'Revisa y aprueba cambios de etapa' : 'Historial de tus solicitudes de cambio'}
         </p>
       </div>
@@ -82,14 +87,14 @@ export default function StageChangesPage() {
           {requests.map((request) => (
             <Card key={request.id}>
               <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-semibold text-accent-900">{request.activity?.title}</h3>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-3 mb-2">
+                      <h3 className="font-semibold text-accent-900 wrap-break-word">{request.activity?.title}</h3>
                       <Badge className={stageChangeStatusColors[request.status]}>{request.status}</Badge>
                     </div>
-                    <p className="text-sm text-accent-500 mb-3">{request.description}</p>
-                    <div className="flex items-center gap-4 text-sm">
+                    <p className="text-sm text-accent-500 mb-3 wrap-break-word">{request.description}</p>
+                    <div className="flex flex-wrap items-center gap-3 text-sm">
                       <div className="flex items-center gap-2">
                         <span className="text-accent-500">De:</span>
                         <span
@@ -117,7 +122,11 @@ export default function StageChangesPage() {
                     </div>
                   </div>
                   {isAdmin && request.status === 'PENDIENTE' && (
-                    <Button size="sm" onClick={() => setSelectedRequest(request)}>
+                    <Button
+                      size="sm"
+                      onClick={() => setSelectedRequest(request)}
+                      className="w-full sm:w-auto shrink-0"
+                    >
                       Revisar
                     </Button>
                   )}
@@ -135,6 +144,10 @@ export default function StageChangesPage() {
         </div>
       )}
 
+      {meta && requests.length > 0 && (
+        <Pagination meta={meta} onPageChange={setPage} />
+      )}
+
       <Modal
         isOpen={!!selectedRequest}
         onClose={() => setSelectedRequest(null)}
@@ -147,7 +160,7 @@ export default function StageChangesPage() {
             <p className="text-sm text-accent-600">{selectedRequest?.description}</p>
           </div>
 
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-4">
             <label className="flex-1">
               <input
                 type="radio"

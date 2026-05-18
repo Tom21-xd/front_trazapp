@@ -13,11 +13,17 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
+  // Necesario para que la PWA use toda la pantalla en iPhone con notch
+  // y para que las safe-area-insets funcionen.
+  viewportFit: "cover",
   themeColor: "#00923f",
   colorScheme: "light",
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL || "https://gestion.florencia.gov.co"
+  ),
   title: {
     default: "TrazApp | Sistema de Gestión de Proyectos",
     template: "%s | TrazApp",
@@ -59,19 +65,19 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: "/icons/icon-32x32.png", sizes: "32x32", type: "image/png" },
-      { url: "/icons/icon-192x192.png", sizes: "192x192", type: "image/png" },
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
     apple: [
-      { url: "/icons/icon-180x180.png", sizes: "180x180", type: "image/png" },
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
     ],
-    shortcut: "/favicon.ico",
   },
   manifest: "/manifest.json",
   openGraph: {
     type: "website",
     locale: "es_CO",
-    url: "https://gestion.florencia.gov.co",
+    url: "/",
     siteName: "TrazApp - Alcaldía de Florencia",
     title: "TrazApp | Sistema de Gestión de Proyectos",
     description:
@@ -93,7 +99,7 @@ export const metadata: Metadata = {
     images: ["/Logohorizontal.png"],
   },
   alternates: {
-    canonical: "https://gestion.florencia.gov.co",
+    canonical: "/",
   },
   category: "government",
 };
@@ -104,7 +110,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es-CO" className="scroll-smooth">
+    <html lang="es-CO" className="scroll-smooth" suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -115,7 +121,7 @@ export default function RootLayout({
         <meta name="geo.region" content="CO-CAQ" />
         <meta name="geo.placename" content="Florencia, Caquetá" />
       </head>
-      <body className={`${onest.variable} font-sans antialiased`}>
+      <body className={`${onest.variable} font-sans antialiased`} suppressHydrationWarning>
         <Providers>{children}</Providers>
       </body>
     </html>

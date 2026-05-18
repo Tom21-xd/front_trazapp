@@ -6,3 +6,7 @@ export { usersService } from './users.service';
 export { tagsService } from './tags.service';
 export { stageChangesService } from './stage-changes.service';
 export { commentsService } from './comments.service';
+export { filesService } from './files.service';
+export { projectTypesService } from './project-types.service';
+export { notificationsService } from './notifications.service';
+export { auditService } from './audit.service';

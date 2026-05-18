@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { stagesService } from '@/services';
-import { Button, Card, CardContent, Modal, Input, Textarea, ConfirmModal, useToast } from '@/components/ui';
+import { Button, Card, CardContent, Modal, Input, Textarea, ConfirmModal, useToast, ColorPicker } from '@/components/ui';
 import type { Stage } from '@/types';
 
 export default function StagesPage() {
@@ -18,7 +18,7 @@ export default function StagesPage() {
   });
   const [deleting, setDeleting] = useState(false);
 
-  const loadStages = async () => {
+  const loadStages = useCallback(async () => {
     try {
       const data = await stagesService.getAll();
       setStages(data.sort((a, b) => a.order - b.order));
@@ -27,11 +27,11 @@ export default function StagesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     loadStages();
-  }, []);
+  }, [loadStages]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,15 +116,16 @@ export default function StagesPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <input
-                      type="color"
+                    <ColorPicker
                       value={stage.color || '#00923f'}
-                      onChange={async (e) => {
-                        await stagesService.update(stage.id, { color: e.target.value });
-                        loadStages();
+                      onChange={async (color) => {
+                        try {
+                          await stagesService.update(stage.id, { color });
+                          loadStages();
+                        } catch {
+                          toast.error('No se pudo actualizar el color');
+                        }
                       }}
-                      className="w-8 h-8 rounded cursor-pointer"
-                      title="Cambiar color"
                     />
                     <Button
                       size="sm"
@@ -162,16 +163,11 @@ export default function StagesPage() {
             rows={2}
           />
           <div>
-            <label className="block text-sm font-medium text-accent-700 mb-1">Color</label>
-            <div className="flex items-center gap-3">
-              <input
-                type="color"
-                value={formData.color}
-                onChange={(e) => setFormData({ ...formData, color: e.target.value })}
-                className="w-12 h-10 rounded cursor-pointer"
-              />
-              <span className="text-sm text-accent-500">{formData.color}</span>
-            </div>
+            <span className="block text-sm font-medium text-accent-700 mb-1">Color</span>
+            <ColorPicker
+              value={formData.color}
+              onChange={(color) => setFormData({ ...formData, color })}
+            />
           </div>
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="ghost" onClick={() => setShowModal(false)}>

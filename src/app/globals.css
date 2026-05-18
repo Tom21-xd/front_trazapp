@@ -59,3 +59,33 @@
   /* Fuente Onest */
   --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
 }
+
+/* ===========================================================================
+   Soporte de "safe areas" para PWA instalada en iPhone con notch /
+   Dynamic Island (modo standalone con viewport-fit=cover).
+   En navegador normal env(safe-area-inset-*) vale 0 → no afecta nada.
+   =========================================================================== */
+@layer utilities {
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .h-safe-top {
+    height: env(safe-area-inset-top, 0px);
+  }
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Evita el zoom automático de iOS al enfocar inputs (< 16px) */
+@supports (-webkit-touch-callout: none) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

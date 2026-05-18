@@ -1,22 +1,43 @@
 import api from '@/lib/api';
-import type { CreateProjectDto, Project, ProjectStats } from '@/types';
+import { toArray, toPage } from '@/lib/pagination';
+import type {
+  CreateProjectDto,
+  Project,
+  ProjectStats,
+  Paginated,
+} from '@/types';
+
+interface PageParams {
+  page?: number;
+  limit?: number;
+  includeInactive?: boolean;
+}
 
 export const projectsService = {
-  getAll: (includeInactive = false) =>
-    api.get<Project[]>('/projects', { includeInactive }),
+  // Lista COMPLETA (selects, dashboards). El backend pagina; pedimos all=true.
+  getAll: async (includeInactive = false): Promise<Project[]> =>
+    toArray<Project>(
+      await api.get('/projects', { includeInactive, all: 'true' }),
+    ),
 
-  getById: (id: string) =>
-    api.get<Project>(`/projects/${id}`),
+  // Lista PAGINADA (vista de tabla con controles de paginación)
+  getPage: async (params: PageParams = {}): Promise<Paginated<Project>> =>
+    toPage<Project>(
+      await api.get('/projects', {
+        page: params.page ?? 1,
+        limit: params.limit ?? 20,
+        includeInactive: params.includeInactive ?? false,
+      }),
+    ),
 
-  getStats: (id: string) =>
-    api.get<ProjectStats>(`/projects/${id}/stats`),
+  getById: (id: string) => api.get<Project>(`/projects/${id}`),
 
-  create: (data: CreateProjectDto) =>
-    api.post<Project>('/projects', data),
+  getStats: (id: string) => api.get<ProjectStats>(`/projects/${id}/stats`),
+
+  create: (data: CreateProjectDto) => api.post<Project>('/projects', data),
 
   update: (id: string, data: Partial<CreateProjectDto>) =>
     api.patch<Project>(`/projects/${id}`, data),
 
-  delete: (id: string) =>
-    api.delete(`/projects/${id}`),
+  delete: (id: string) => api.delete(`/projects/${id}`),
 };

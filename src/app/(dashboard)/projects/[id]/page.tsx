@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { projectsService, activitiesService, stagesService } from '@/services';
@@ -32,7 +32,7 @@ export default function ProjectDetailPage() {
 
   const projectId = params.id as string;
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [projectData, activitiesData, stagesData, statsData] = await Promise.all([
         projectsService.getById(projectId),
@@ -44,19 +44,21 @@ export default function ProjectDetailPage() {
       setActivities(activitiesData);
       setStages(stagesData);
       setStats(statsData);
-      if (stagesData.length > 0 && !activityForm.currentStageId) {
-        setActivityForm((f) => ({ ...f, currentStageId: stagesData[0].id }));
+      if (stagesData.length > 0) {
+        setActivityForm((f) =>
+          f.currentStageId ? f : { ...f, currentStageId: stagesData[0].id },
+        );
       }
     } catch {
       toast.error('Error al cargar el proyecto');
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId, toast]);
 
   useEffect(() => {
     loadData();
-  }, [projectId]);
+  }, [loadData]);
 
   const handleCreateActivity = async (e: React.FormEvent) => {
     e.preventDefault();

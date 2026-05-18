@@ -6,6 +6,8 @@ export { Card, CardHeader, CardContent, CardFooter } from './Card';
 export { Badge } from './Badge';
 export { Avatar } from './Avatar';
 export { Modal } from './Modal';
+export { ColorPicker } from './ColorPicker';
+export { Pagination } from './Pagination';
 export { ToastProvider, useToast, ConfirmModal } from './Toast';
 export {
   Skeleton,

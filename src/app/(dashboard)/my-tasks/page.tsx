@@ -78,15 +78,15 @@ export default function MyTasksPage() {
                         className="flex items-center justify-between p-4 hover:bg-accent-50 transition-colors"
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-accent-900">{activity.title}</p>
-                          <div className="flex items-center gap-3 mt-1 text-sm text-accent-500">
-                            <span>{activity.project?.name}</span>
-                            <span>•</span>
-                            <span>{activity.currentStage?.name}</span>
+                          <p className="font-medium text-accent-900 truncate">{activity.title}</p>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-sm text-accent-500">
+                            <span className="truncate max-w-[45vw]">{activity.project?.name}</span>
+                            <span className="hidden sm:inline">•</span>
+                            <span className="truncate max-w-[45vw]">{activity.currentStage?.name}</span>
                           </div>
                         </div>
                         {activity.dueDate && (
-                          <span className="text-sm text-accent-500">{formatDate(activity.dueDate)}</span>
+                          <span className="text-sm text-accent-500 shrink-0 hidden sm:inline">{formatDate(activity.dueDate)}</span>
                         )}
                       </Link>
                     ))}

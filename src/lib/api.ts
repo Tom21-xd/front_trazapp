@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 class ApiClient {
   private baseUrl: string;
@@ -118,6 +118,60 @@ class ApiClient {
 
   delete<T>(endpoint: string): Promise<T> {
     return this.request<T>(endpoint, { method: 'DELETE' });
+  }
+
+  /** Sube multipart/form-data (NO fija Content-Type: lo pone el navegador con el boundary). */
+  async upload<T>(endpoint: string, formData: FormData): Promise<T> {
+    const url = `${this.baseUrl}${endpoint}`;
+    const doFetch = () => {
+      const headers: Record<string, string> = {};
+      const token = this.getToken();
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      return fetch(url, { method: 'POST', body: formData, headers });
+    };
+
+    let res = await doFetch();
+    if (res.status === 401 && this.getToken()) {
+      const refreshed = await this.refreshAccessToken();
+      if (refreshed) {
+        res = await doFetch();
+      } else {
+        if (typeof window !== 'undefined') window.location.href = '/login';
+        throw new Error('Session expired');
+      }
+    }
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ message: 'Error' }));
+      throw new Error(err.message || `HTTP ${res.status}`);
+    }
+    const text = await res.text();
+    return text ? JSON.parse(text) : ({} as T);
+  }
+
+  /** Descarga un recurso protegido como Blob (envía el Bearer token). */
+  async getBlob(endpoint: string): Promise<Blob> {
+    const url = `${this.baseUrl}${endpoint}`;
+    const doFetch = () => {
+      const headers: Record<string, string> = {};
+      const token = this.getToken();
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      return fetch(url, { method: 'GET', headers });
+    };
+
+    let res = await doFetch();
+    if (res.status === 401 && this.getToken()) {
+      const refreshed = await this.refreshAccessToken();
+      if (refreshed) {
+        res = await doFetch();
+      } else {
+        if (typeof window !== 'undefined') window.location.href = '/login';
+        throw new Error('Session expired');
+      }
+    }
+    if (!res.ok) {
+      throw new Error(`No se pudo descargar el archivo (HTTP ${res.status})`);
+    }
+    return res.blob();
   }
 }
 

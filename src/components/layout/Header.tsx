@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuthContext } from '@/store/AuthContext';
 import { Avatar } from '@/components/ui';
+import { NotificationBell } from './NotificationBell';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -13,7 +14,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   const [showMenu, setShowMenu] = useState(false);
 
   return (
-    <header className="h-14 lg:h-16 bg-white border-b border-accent-200 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-30">
+    <header className="min-h-14 lg:min-h-16 pt-safe bg-white border-b border-accent-200 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-30">
       <div className="flex items-center gap-3 lg:gap-4">
         {/* Mobile hamburger */}
         <button
@@ -33,7 +34,9 @@ export function Header({ onMenuClick }: HeaderProps) {
         </h1>
       </div>
 
-      <div className="relative">
+      <div className="flex items-center gap-1 sm:gap-2">
+        <NotificationBell />
+        <div className="relative">
         <button
           type="button"
           onClick={() => setShowMenu(!showMenu)}
@@ -72,6 +75,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             </div>
           </>
         )}
+        </div>
       </div>
     </header>
   );

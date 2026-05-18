@@ -24,6 +24,21 @@ export enum StageChangeStatus {
   RECHAZADO = 'RECHAZADO',
 }
 
+// Paginación (envelope uniforme de todos los listados)
+export interface PageMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
+export interface Paginated<T> {
+  data: T[];
+  meta: PageMeta;
+}
+
 // Base interfaces
 export interface User {
   id: string;
@@ -58,6 +73,52 @@ export interface ProjectType {
   id: string;
   name: string;
   description?: string;
+  color?: string;
+  isActive?: boolean;
+  _count?: { projects: number };
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type NotificationType =
+  | 'ACTIVIDAD_ASIGNADA'
+  | 'SOLICITUD_CAMBIO_ETAPA'
+  | 'CAMBIO_ETAPA_APROBADO'
+  | 'CAMBIO_ETAPA_RECHAZADO'
+  | 'NUEVO_COMENTARIO'
+  | 'PROYECTO_ACTUALIZADO';
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  isRead: boolean;
+  metadata?: { activityId?: string } | null;
+  createdAt: string;
+}
+
+export type AuditAction =
+  | 'CREATE'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'LOGIN'
+  | 'LOGOUT'
+  | 'STAGE_CHANGE_REQUEST'
+  | 'STAGE_CHANGE_APPROVED'
+  | 'STAGE_CHANGE_REJECTED'
+  | 'ASSIGNMENT_CREATED'
+  | 'ASSIGNMENT_REMOVED';
+
+export interface AuditLog {
+  id: string;
+  action: AuditAction;
+  entityType: string;
+  entityId: string;
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: string;
+  user?: { id: string; name: string; email: string; role: Role };
 }
 
 export interface Stage {
@@ -83,8 +144,10 @@ export interface Activity {
   currentStageId: string;
   currentStage?: Stage;
   assignments?: ActivityAssignment[];
+  assignedUsers?: User[];
   comments?: Comment[];
   tags?: Tag[];
+  files?: FileAttachment[];
   dependsOn?: Activity[];
   dependedBy?: Activity[];
   createdAt: string;
@@ -99,12 +162,27 @@ export interface ActivityAssignment {
   assignedAt: string;
 }
 
+export interface FileAttachment {
+  id: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  createdAt: string;
+  uploadedById: string;
+  activityId?: string | null;
+  commentId?: string | null;
+  stageChangeRequestId?: string | null;
+  stageChangeCommentId?: string | null;
+  url: string;
+}
+
 export interface Comment {
   id: string;
   content: string;
   userId: string;
   user?: User;
   activityId: string;
+  files?: FileAttachment[];
   createdAt: string;
   updatedAt: string;
 }
@@ -162,6 +240,7 @@ export interface CreateProjectDto {
   status?: ProjectStatus;
   startDate?: string;
   endDate?: string;
+  projectTypeId?: string;
   tagIds?: string[];
 }
 
