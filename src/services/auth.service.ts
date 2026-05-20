@@ -26,5 +26,19 @@ export const authService = {
     return api.get<User>('/auth/me');
   },
 
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    return api.post<{ message: string }>('/auth/forgot-password', { email });
+  },
+
+  async resetPassword(
+    token: string,
+    password: string,
+  ): Promise<{ message: string }> {
+    return api.post<{ message: string }>('/auth/reset-password', {
+      token,
+      password,
+    });
+  },
+
   isAuthenticated: () => api.isAuthenticated(),
 };

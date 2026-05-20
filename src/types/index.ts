@@ -131,6 +131,8 @@ export interface AuditLog {
   action: AuditAction;
   entityType: string;
   entityId: string;
+  oldData?: unknown;
+  newData?: unknown;
   ipAddress?: string;
   userAgent?: string;
   createdAt: string;
