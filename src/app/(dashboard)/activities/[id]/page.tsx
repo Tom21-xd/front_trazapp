@@ -51,6 +51,69 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function csvCell(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const s = String(value).replace(/"/g, '""');
+  return `"${s}"`;
+}
+
+function eventsToCsv(activityTitle: string, events: ActivityEvent[]): string {
+  const headers = [
+    'Fecha',
+    'Tipo',
+    'Actor',
+    'Objetivo',
+    'Etapa origen',
+    'Etapa destino',
+    'Solicitud',
+    'Detalle',
+  ];
+  // BOM (﻿) para que Excel detecte UTF-8 correctamente con tildes
+  const lines = ['﻿' + headers.map(csvCell).join(',')];
+  // Cronológico: del más antiguo al más reciente
+  const ordered = [...events].sort(
+    (a, b) =>
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
+  for (const ev of ordered) {
+    let detail = ev.note ?? '';
+    if (ev.type === 'COMMENT_ADDED' || ev.type === 'COMMENT_EDITED') {
+      detail = ev.comment?.content ?? detail;
+    } else if (ev.type === 'FILE_UPLOADED') {
+      detail = ev.file?.originalName ?? detail;
+    }
+    lines.push(
+      [
+        new Date(ev.createdAt).toISOString(),
+        ev.type,
+        ev.actor?.name ?? '',
+        ev.targetUser?.name ?? '',
+        ev.fromStage?.name ?? '',
+        ev.toStage?.name ?? '',
+        ev.stageChangeRequest?.id ?? '',
+        detail,
+      ]
+        .map(csvCell)
+        .join(','),
+    );
+  }
+  // Cabecera de contexto al inicio
+  const header = `# Trazabilidad de actividad: ${activityTitle.replace(/[\r\n]+/g, ' ')}`;
+  return [header, '', ...lines].join('\n');
+}
+
+function downloadCsv(filename: string, content: string) {
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 // === Timeline ===
 
 const EVENT_META: Record<
@@ -1615,14 +1678,48 @@ export default function ActivityDetailPage() {
           {/* Trazabilidad */}
           <Card>
             <CardHeader>
-              <div>
-                <h2 className="text-lg font-semibold text-accent-900">
-                  Trazabilidad
-                </h2>
-                <p className="text-xs text-accent-500 mt-0.5">
-                  Quién hizo qué y cuándo. Útil cuando una actividad cambia de
-                  manos.
-                </p>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold text-accent-900">
+                    Trazabilidad
+                  </h2>
+                  <p className="text-xs text-accent-500 mt-0.5">
+                    Quién hizo qué y cuándo. Útil cuando una actividad cambia
+                    de manos.
+                  </p>
+                </div>
+                {events.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const safeTitle = activity.title
+                        .replace(/[^a-z0-9-_]+/gi, '-')
+                        .replace(/^-+|-+$/g, '')
+                        .slice(0, 60) || 'actividad';
+                      downloadCsv(
+                        `trazabilidad-${safeTitle}.csv`,
+                        eventsToCsv(activity.title, events),
+                      );
+                    }}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-accent-700 bg-accent-50 hover:bg-accent-100 border border-accent-200 rounded-lg transition-colors shrink-0"
+                    title="Descargar CSV con todos los eventos"
+                  >
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                      />
+                    </svg>
+                    Exportar CSV
+                  </button>
+                )}
               </div>
             </CardHeader>
             <CardContent>

@@ -11,3 +11,4 @@ export { projectTypesService } from './project-types.service';
 export { notificationsService } from './notifications.service';
 export { auditService } from './audit.service';
 export { rolesService } from './roles.service';
+export { pushService, type PushStatus } from './push.service';

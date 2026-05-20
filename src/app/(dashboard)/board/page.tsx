@@ -30,10 +30,12 @@ export default function KanbanBoardPage() {
   const [users, setUsers] = useState<User[]>([]);
   const canAssign = can('activity:assign');
   const [loading, setLoading] = useState(true);
+  const KANBAN_FILTERS_KEY = 'trazapp:kanban:filters:v1';
   const [filterProjectId, setFilterProjectId] = useState('');
   const [filterAssigneeId, setFilterAssigneeId] = useState('');
   const [filterPriority, setFilterPriority] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [filtersHydrated, setFiltersHydrated] = useState(false);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dropTargetStage, setDropTargetStage] = useState<string | null>(null);
 
@@ -94,6 +96,52 @@ export default function KanbanBoardPage() {
   useEffect(() => {
     loadActivities();
   }, [loadActivities]);
+
+  // Hidratar filtros desde localStorage al montar (solo una vez)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(KANBAN_FILTERS_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as {
+          projectId?: string;
+          assigneeId?: string;
+          priority?: string;
+          search?: string;
+        };
+        if (saved.projectId) setFilterProjectId(saved.projectId);
+        if (saved.assigneeId) setFilterAssigneeId(saved.assigneeId);
+        if (saved.priority) setFilterPriority(saved.priority);
+        if (saved.search) setSearchQuery(saved.search);
+      }
+    } catch {
+      // si el JSON está corrupto, lo ignoramos
+    }
+    setFiltersHydrated(true);
+  }, []);
+
+  // Persistir filtros cuando cambian (sólo después de hidratar)
+  useEffect(() => {
+    if (!filtersHydrated) return;
+    if (typeof window === 'undefined') return;
+    const payload = {
+      projectId: filterProjectId,
+      assigneeId: filterAssigneeId,
+      priority: filterPriority,
+      search: searchQuery,
+    };
+    try {
+      window.localStorage.setItem(KANBAN_FILTERS_KEY, JSON.stringify(payload));
+    } catch {
+      // quota o modo privado: silencioso
+    }
+  }, [
+    filtersHydrated,
+    filterProjectId,
+    filterAssigneeId,
+    filterPriority,
+    searchQuery,
+  ]);
 
   // Drag handlers
   const handleDragStart = (activityId: string, fromStageId: string) => {
@@ -330,6 +378,7 @@ export default function KanbanBoardPage() {
                 setFilterAssigneeId('');
                 setFilterPriority('');
                 setSearchQuery('');
+                setFilterProjectId('');
               }}
               className="text-xs font-medium text-accent-500 hover:text-accent-700"
             >

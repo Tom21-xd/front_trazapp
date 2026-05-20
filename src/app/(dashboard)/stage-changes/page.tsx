@@ -3,13 +3,24 @@
 import { useEffect, useState, useCallback } from 'react';
 import { stageChangesService } from '@/services';
 import { useAuthContext } from '@/store/AuthContext';
-import { Button, Card, CardContent, Badge, Modal, Textarea, useToast, Pagination } from '@/components/ui';
+import {
+  Button,
+  Card,
+  CardContent,
+  Badge,
+  Modal,
+  Textarea,
+  useToast,
+  Pagination,
+  ConfirmModal,
+} from '@/components/ui';
 import { stageChangeStatusColors, formatDateTime } from '@/lib/utils';
 import type { StageChangeRequest, ReviewStageChangeDto, PageMeta } from '@/types';
 
 export default function StageChangesPage() {
-  const { can } = useAuthContext();
+  const { user, can } = useAuthContext();
   const canReview = can('stagechange:review');
+  const canManageAny = can('stagechange:manage:any');
   const toast = useToast();
   const [requests, setRequests] = useState<StageChangeRequest[]>([]);
   const [meta, setMeta] = useState<PageMeta | null>(null);
@@ -18,6 +29,8 @@ export default function StageChangesPage() {
   const [selectedRequest, setSelectedRequest] = useState<StageChangeRequest | null>(null);
   const [reviewForm, setReviewForm] = useState<ReviewStageChangeDto>({ status: 'APROBADO', reviewComment: '' });
   const [saving, setSaving] = useState(false);
+  const [cancelId, setCancelId] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   const loadRequests = useCallback(async () => {
     try {
@@ -36,6 +49,23 @@ export default function StageChangesPage() {
   useEffect(() => {
     loadRequests();
   }, [loadRequests]);
+
+  const handleCancel = async () => {
+    if (!cancelId) return;
+    setCancelling(true);
+    try {
+      await stageChangesService.cancel(cancelId);
+      toast.success('Solicitud cancelada');
+      setCancelId(null);
+      loadRequests();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'No se pudo cancelar la solicitud',
+      );
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   const handleReview = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,14 +152,28 @@ export default function StageChangesPage() {
                       Solicitado por {request.requestedBy?.name} • {formatDateTime(request.createdAt)}
                     </div>
                   </div>
-                  {canReview && request.status === 'PENDIENTE' && (
-                    <Button
-                      size="sm"
-                      onClick={() => setSelectedRequest(request)}
-                      className="w-full sm:w-auto shrink-0"
-                    >
-                      Revisar
-                    </Button>
+                  {request.status === 'PENDIENTE' && (
+                    <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                      {canReview && (
+                        <Button
+                          size="sm"
+                          onClick={() => setSelectedRequest(request)}
+                          className="w-full sm:w-auto"
+                        >
+                          Revisar
+                        </Button>
+                      )}
+                      {(request.requestedBy?.id === user?.id || canManageAny) && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setCancelId(request.id)}
+                          className="w-full sm:w-auto"
+                        >
+                          Cancelar
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -268,6 +312,18 @@ export default function StageChangesPage() {
           </section>
         </form>
       </Modal>
+
+      <ConfirmModal
+        isOpen={!!cancelId}
+        onClose={() => setCancelId(null)}
+        onConfirm={handleCancel}
+        title="Cancelar solicitud"
+        message="La solicitud quedará en estado CANCELADO y no se podrá reabrir. ¿Confirmas?"
+        confirmText="Cancelar solicitud"
+        cancelText="Volver"
+        variant="danger"
+        loading={cancelling}
+      />
     </div>
   );
 }

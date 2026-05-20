@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { notificationsService } from '@/services';
+import { notificationsService, pushService, type PushStatus } from '@/services';
 import { cn } from '@/lib/utils';
 import type { AppNotification } from '@/types';
 
@@ -12,7 +12,33 @@ export function NotificationBell() {
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pushStatus, setPushStatus] = useState<PushStatus>('unsupported');
+  const [pushBusy, setPushBusy] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  const refreshPushStatus = useCallback(() => {
+    pushService.getStatus().then(setPushStatus).catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    refreshPushStatus();
+  }, [refreshPushStatus]);
+
+  const togglePush = async () => {
+    setPushBusy(true);
+    try {
+      if (pushStatus === 'subscribed') {
+        await pushService.unsubscribe();
+      } else {
+        await pushService.subscribe();
+      }
+    } catch {
+      // best-effort
+    } finally {
+      await refreshPushStatus();
+      setPushBusy(false);
+    }
+  };
 
   const loadCount = useCallback(async () => {
     try {
@@ -123,6 +149,47 @@ export function NotificationBell() {
               </button>
             )}
           </div>
+
+          {pushStatus !== 'unsupported' && (
+            <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-accent-100 bg-accent-50/40">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-accent-900">
+                  Notificaciones del dispositivo
+                </p>
+                <p className="text-[11px] text-accent-500 truncate">
+                  {pushStatus === 'subscribed'
+                    ? 'Recibes alertas en este dispositivo'
+                    : pushStatus === 'denied'
+                      ? 'Permiso bloqueado · ajústalo en el navegador'
+                      : 'Activa para recibir alertas aquí'}
+                </p>
+              </div>
+              {pushStatus !== 'denied' && (
+                <button
+                  type="button"
+                  onClick={togglePush}
+                  disabled={pushBusy}
+                  className={cn(
+                    'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors',
+                    pushStatus === 'subscribed' ? 'bg-primary-600' : 'bg-accent-300',
+                    pushBusy && 'opacity-60',
+                  )}
+                  aria-label={
+                    pushStatus === 'subscribed'
+                      ? 'Desactivar push'
+                      : 'Activar push'
+                  }
+                >
+                  <span
+                    className={cn(
+                      'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                      pushStatus === 'subscribed' ? 'translate-x-4' : 'translate-x-0.5',
+                    )}
+                  />
+                </button>
+              )}
+            </div>
+          )}
           <div className="max-h-96 overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center py-8">
