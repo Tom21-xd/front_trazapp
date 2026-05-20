@@ -1,6 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState, useId } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useId,
+} from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 
 interface Option {
@@ -38,19 +45,55 @@ export function Select({
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
-  const rootRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    placement: 'below' | 'above';
+  } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const generatedId = useId();
   const fieldId = id || generatedId;
 
   const selected = options.find((o) => o.value === value);
 
+  // Posiciona el dropdown sobre el trigger (portalizado al body para evitar
+  // recortes por overflow de modales/contenedores).
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const updatePosition = () => {
+      const trigger = triggerRef.current;
+      if (!trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const desired = Math.min(240, options.length * 40 + 16);
+      const placement: 'below' | 'above' =
+        spaceBelow < desired && spaceAbove > spaceBelow ? 'above' : 'below';
+      setCoords({
+        top: placement === 'below' ? rect.bottom + 4 : rect.top - 4,
+        left: rect.left,
+        width: rect.width,
+        placement,
+      });
+    };
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [open, options.length]);
+
   useEffect(() => {
     if (!open) return;
     const onDocClick = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target)) return;
+      if (listRef.current?.contains(target)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
@@ -75,7 +118,10 @@ export function Select({
       if (!open) {
         setOpen(true);
         setActiveIndex(
-          Math.max(0, options.findIndex((o) => o.value === value)),
+          Math.max(
+            0,
+            options.findIndex((o) => o.value === value),
+          ),
         );
       } else {
         setActiveIndex((i) => Math.min(options.length - 1, i + 1));
@@ -90,7 +136,7 @@ export function Select({
   };
 
   return (
-    <div className={cn('w-full', className)} ref={rootRef}>
+    <div className={cn('w-full', className)}>
       {label && (
         <label
           htmlFor={fieldId}
@@ -101,6 +147,7 @@ export function Select({
       )}
       <div className="relative">
         <button
+          ref={triggerRef}
           type="button"
           id={fieldId}
           disabled={disabled}
@@ -112,7 +159,9 @@ export function Select({
             'w-full flex items-center justify-between gap-2 px-4 py-2 rounded-lg border text-left',
             'bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors',
             'disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-accent-100',
-            error ? 'border-secondary-500 focus:ring-secondary-500' : 'border-accent-300',
+            error
+              ? 'border-secondary-500 focus:ring-secondary-500'
+              : 'border-accent-300',
           )}
         >
           <span
@@ -132,50 +181,82 @@ export function Select({
             stroke="currentColor"
             viewBox="0 0 24 24"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 9l-7 7-7-7"
+            />
           </svg>
         </button>
 
-        {open && (
-          <div
-            ref={listRef}
-            role="listbox"
-            aria-label={label || placeholder}
-            className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto bg-white border border-accent-200 rounded-lg shadow-lg py-1 animate-in fade-in duration-150"
-          >
-            {options.length === 0 && (
-              <div className="px-4 py-2 text-sm text-accent-400">
-                Sin opciones
-              </div>
-            )}
-            {options.map((opt, idx) => {
-              const isSelected = opt.value === value;
-              const isActive = idx === activeIndex;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  role="option"
-                  aria-selected={isSelected}
-                  onMouseEnter={() => setActiveIndex(idx)}
-                  onClick={() => choose(opt.value)}
-                  className={cn(
-                    'w-full px-4 py-2 text-sm cursor-pointer flex items-center justify-between gap-2 text-left',
-                    isActive ? 'bg-primary-50' : 'hover:bg-accent-50',
-                    isSelected ? 'text-primary-700 font-medium' : 'text-accent-700',
-                  )}
-                >
-                  <span className="truncate">{opt.label}</span>
-                  {isSelected && (
-                    <svg className="w-4 h-4 text-primary-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
+        {open &&
+          coords &&
+          typeof document !== 'undefined' &&
+          createPortal(
+            <div
+              ref={listRef}
+              role="listbox"
+              aria-label={label || placeholder}
+              style={{
+                position: 'fixed',
+                top: coords.placement === 'below' ? coords.top : undefined,
+                bottom:
+                  coords.placement === 'above'
+                    ? window.innerHeight - coords.top
+                    : undefined,
+                left: coords.left,
+                width: coords.width,
+                zIndex: 1000,
+              }}
+              className="max-h-60 overflow-y-auto bg-white border border-accent-200 rounded-lg shadow-2xl ring-1 ring-accent-900/5 py-1 animate-in fade-in duration-150"
+            >
+              {options.length === 0 && (
+                <div className="px-4 py-2 text-sm text-accent-400">
+                  Sin opciones
+                </div>
+              )}
+              {options.map((opt, idx) => {
+                const isSelected = opt.value === value;
+                const isActive = idx === activeIndex;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    onMouseEnter={() => setActiveIndex(idx)}
+                    onClick={() => choose(opt.value)}
+                    className={cn(
+                      'w-full px-4 py-2 text-sm cursor-pointer flex items-center justify-between gap-2 text-left',
+                      isActive ? 'bg-primary-50' : 'hover:bg-accent-50',
+                      isSelected
+                        ? 'text-primary-700 font-medium'
+                        : 'text-accent-700',
+                    )}
+                  >
+                    <span className="truncate">{opt.label}</span>
+                    {isSelected && (
+                      <svg
+                        className="w-4 h-4 text-primary-600 shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>,
+            document.body,
+          )}
       </div>
       {error && <p className="mt-1 text-sm text-secondary-500">{error}</p>}
     </div>

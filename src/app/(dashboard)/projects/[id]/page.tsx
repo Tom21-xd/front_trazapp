@@ -13,7 +13,7 @@ export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
   const toast = useToast();
-  const { isAdmin } = useAuthContext();
+  const { can } = useAuthContext();
   const [project, setProject] = useState<Project | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
@@ -124,7 +124,7 @@ export default function ProjectDetailPage() {
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <Badge className={statusColors[project.status]}>{project.status.replace('_', ' ')}</Badge>
-          {isAdmin && (
+          {can('project:delete') && (
             <Button variant="danger" size="sm" onClick={() => setDeleteConfirm(true)}>
               Eliminar
             </Button>
@@ -157,7 +157,7 @@ export default function ProjectDetailPage() {
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-accent-900">Actividades</h2>
-            {isAdmin && (
+            {can('activity:create') && (
               <Button size="sm" onClick={() => setShowActivityModal(true)} className="w-full sm:w-auto">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -213,51 +213,94 @@ export default function ProjectDetailPage() {
         </CardContent>
       </Card>
 
-      <Modal isOpen={showActivityModal} onClose={() => setShowActivityModal(false)} title="Nueva actividad" size="lg">
-        <form onSubmit={handleCreateActivity} className="space-y-4">
-          <Input
-            id="title"
-            label="Título"
-            value={activityForm.title}
-            onChange={(e) => setActivityForm({ ...activityForm, title: e.target.value })}
-            required
-          />
-          <Textarea
-            id="description"
-            label="Descripción"
-            value={activityForm.description}
-            onChange={(e) => setActivityForm({ ...activityForm, description: e.target.value })}
-            rows={3}
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Select
-              id="priority"
-              label="Prioridad"
-              value={activityForm.priority}
-              onChange={(e) => setActivityForm({ ...activityForm, priority: e.target.value as Priority })}
-              options={[
-                { value: 'BAJA', label: 'Baja' },
-                { value: 'MEDIA', label: 'Media' },
-                { value: 'ALTA', label: 'Alta' },
-                { value: 'URGENTE', label: 'Urgente' },
-              ]}
-            />
-            <Select
-              id="stage"
-              label="Etapa"
-              value={activityForm.currentStageId}
-              onChange={(e) => setActivityForm({ ...activityForm, currentStageId: e.target.value })}
-              options={stages.map((s) => ({ value: s.id, label: s.name }))}
-            />
-          </div>
-          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4">
-            <Button type="button" variant="ghost" onClick={() => setShowActivityModal(false)} className="w-full sm:w-auto">
+      <Modal
+        isOpen={showActivityModal}
+        onClose={() => setShowActivityModal(false)}
+        title="Nueva actividad"
+        subtitle="Agrega una actividad dentro de este proyecto"
+        size="2xl"
+        icon={
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          </svg>
+        }
+        footer={
+          <>
+            <Button type="button" variant="ghost" onClick={() => setShowActivityModal(false)}>
               Cancelar
             </Button>
-            <Button type="submit" loading={saving} className="w-full sm:w-auto">
+            <Button
+              type="submit"
+              form="project-new-activity-form"
+              loading={saving}
+              disabled={!activityForm.title.trim()}
+            >
               Crear actividad
             </Button>
-          </div>
+          </>
+        }
+      >
+        <form
+          id="project-new-activity-form"
+          onSubmit={handleCreateActivity}
+          className="space-y-6"
+        >
+          <section className="space-y-4">
+            <div>
+              <h3 className="text-xs font-semibold tracking-wider uppercase text-accent-500">
+                Información general
+              </h3>
+              <p className="text-xs text-accent-400 mt-0.5">Qué hay que hacer</p>
+            </div>
+            <Input
+              id="title"
+              label="Título"
+              placeholder="Ej. Revisar planos de la obra"
+              value={activityForm.title}
+              onChange={(e) => setActivityForm({ ...activityForm, title: e.target.value })}
+              required
+            />
+            <Textarea
+              id="description"
+              label="Descripción"
+              placeholder="Contexto, criterios de aceptación o pasos a seguir"
+              value={activityForm.description}
+              onChange={(e) => setActivityForm({ ...activityForm, description: e.target.value })}
+              rows={4}
+            />
+          </section>
+
+          <div className="h-px bg-accent-100" />
+
+          <section className="space-y-4">
+            <div>
+              <h3 className="text-xs font-semibold tracking-wider uppercase text-accent-500">
+                Clasificación
+              </h3>
+              <p className="text-xs text-accent-400 mt-0.5">Etapa inicial y urgencia</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Select
+                id="stage"
+                label="Etapa"
+                value={activityForm.currentStageId}
+                onChange={(e) => setActivityForm({ ...activityForm, currentStageId: e.target.value })}
+                options={stages.map((s) => ({ value: s.id, label: s.name }))}
+              />
+              <Select
+                id="priority"
+                label="Prioridad"
+                value={activityForm.priority}
+                onChange={(e) => setActivityForm({ ...activityForm, priority: e.target.value as Priority })}
+                options={[
+                  { value: 'BAJA', label: 'Baja' },
+                  { value: 'MEDIA', label: 'Media' },
+                  { value: 'ALTA', label: 'Alta' },
+                  { value: 'URGENTE', label: 'Urgente' },
+                ]}
+              />
+            </div>
+          </section>
         </form>
       </Modal>
 

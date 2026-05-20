@@ -1,10 +1,10 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { usersService } from '@/services';
+import { usersService, rolesService } from '@/services';
 import { Button, Card, CardHeader, CardContent, Badge, Avatar, Modal, Input, Select, Pagination, useToast } from '@/components/ui';
 import { formatDateTime } from '@/lib/utils';
-import { Role, type User, type PageMeta } from '@/types';
+import type { User, PageMeta, AppRole } from '@/types';
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -12,9 +12,27 @@ export default function UsersPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ name: '', email: '', password: '', phone: '', role: Role.EMPLEADO });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', phone: '', appRoleId: '' });
   const [saving, setSaving] = useState(false);
+  const [roles, setRoles] = useState<AppRole[]>([]);
   const toast = useToast();
+
+  useEffect(() => {
+    rolesService
+      .getAll()
+      .then(setRoles)
+      .catch(() => setRoles([]));
+  }, []);
+
+  const handleAssignRole = async (userId: string, roleId: string) => {
+    try {
+      await rolesService.assignToUser(userId, roleId || null);
+      toast.success('Rol actualizado');
+      loadUsers();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo asignar el rol');
+    }
+  };
 
   const loadUsers = useCallback(async () => {
     try {
@@ -36,9 +54,13 @@ export default function UsersPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      await usersService.create(formData);
+      const { appRoleId, ...rest } = formData;
+      await usersService.create({
+        ...rest,
+        ...(appRoleId ? { appRoleId } : {}),
+      });
       setShowModal(false);
-      setFormData({ name: '', email: '', password: '', phone: '', role: Role.EMPLEADO });
+      setFormData({ name: '', email: '', password: '', phone: '', appRoleId: '' });
       toast.success('Usuario creado');
       loadUsers();
     } catch (err) {
@@ -111,8 +133,16 @@ export default function UsersPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-accent-600">{user.email}</td>
-                    <td className="px-6 py-4">
-                      <Badge variant={user.role === 'ADMIN' ? 'primary' : 'default'}>{user.role}</Badge>
+                    <td className="px-6 py-4 min-w-50">
+                      <Select
+                        value={user.appRole?.id ?? ''}
+                        onChange={(e) => handleAssignRole(user.id, e.target.value)}
+                        placeholder="Sin rol"
+                        options={[
+                          { value: '', label: 'Sin rol' },
+                          ...roles.map((r) => ({ value: r.id, label: r.name })),
+                        ]}
+                      />
                     </td>
                     <td className="px-6 py-4">
                       <Badge variant={user.isActive ? 'success' : 'danger'}>
@@ -141,57 +171,108 @@ export default function UsersPage() {
 
       {meta && <Pagination meta={meta} onPageChange={setPage} />}
 
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Nuevo usuario" size="lg">
-        <form onSubmit={handleCreate} className="space-y-4">
-          <Input
-            id="name"
-            label="Nombre completo"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            required
-          />
-          <Input
-            id="email"
-            type="email"
-            label="Correo electrónico"
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            required
-          />
-          <Input
-            id="password"
-            type="password"
-            label="Contraseña"
-            value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-            minLength={6}
-            required
-          />
-          <Input
-            id="phone"
-            type="tel"
-            label="Teléfono (opcional)"
-            value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-          />
-          <Select
-            id="role"
-            label="Rol"
-            value={formData.role}
-            onChange={(e) => setFormData({ ...formData, role: e.target.value as Role })}
-            options={[
-              { value: 'EMPLEADO', label: 'Empleado' },
-              { value: 'ADMIN', label: 'Administrador' },
-            ]}
-          />
-          <div className="flex justify-end gap-3 pt-4">
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="Nuevo usuario"
+        subtitle="Crea una cuenta y asígnale un rol del sistema"
+        size="2xl"
+        icon={
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+        }
+        footer={
+          <>
             <Button type="button" variant="ghost" onClick={() => setShowModal(false)}>
               Cancelar
             </Button>
-            <Button type="submit" loading={saving}>
+            <Button
+              type="submit"
+              form="new-user-form"
+              loading={saving}
+              disabled={
+                !formData.name.trim() ||
+                !formData.email.trim() ||
+                !formData.password ||
+                formData.password.length < 6
+              }
+            >
               Crear usuario
             </Button>
-          </div>
+          </>
+        }
+      >
+        <form id="new-user-form" onSubmit={handleCreate} className="space-y-6">
+          <section className="space-y-4">
+            <div>
+              <h3 className="text-xs font-semibold tracking-wider uppercase text-accent-500">
+                Identidad
+              </h3>
+              <p className="text-xs text-accent-400 mt-0.5">Cómo se identifica la persona</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                id="name"
+                label="Nombre completo"
+                placeholder="Ej. Juan Pérez"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+              <Input
+                id="phone"
+                type="tel"
+                label="Teléfono (opcional)"
+                placeholder="Ej. +57 300 000 0000"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              />
+            </div>
+          </section>
+
+          <div className="h-px bg-accent-100" />
+
+          <section className="space-y-4">
+            <div>
+              <h3 className="text-xs font-semibold tracking-wider uppercase text-accent-500">
+                Acceso
+              </h3>
+              <p className="text-xs text-accent-400 mt-0.5">Credenciales y rol asignado</p>
+            </div>
+            <Input
+              id="email"
+              type="email"
+              label="Correo electrónico"
+              placeholder="usuario@trazapp.com"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              required
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                id="password"
+                type="password"
+                label="Contraseña"
+                placeholder="Mínimo 6 caracteres"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                minLength={6}
+                required
+              />
+              <Select
+                id="appRoleId"
+                label="Rol"
+                value={formData.appRoleId}
+                onChange={(e) => setFormData({ ...formData, appRoleId: e.target.value })}
+                placeholder="Sin rol"
+                options={[
+                  { value: '', label: 'Sin rol' },
+                  ...roles.map((r) => ({ value: r.id, label: r.name })),
+                ]}
+              />
+            </div>
+          </section>
         </form>
       </Modal>
     </div>

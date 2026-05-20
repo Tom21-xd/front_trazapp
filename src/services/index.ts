@@ -10,3 +10,4 @@ export { filesService } from './files.service';
 export { projectTypesService } from './project-types.service';
 export { notificationsService } from './notifications.service';
 export { auditService } from './audit.service';
+export { rolesService } from './roles.service';

@@ -23,6 +23,25 @@ export function formatDateTime(date: string | Date) {
   }).format(new Date(date));
 }
 
+/** Tiempo relativo en español ("hace 3 min", "hace 2 h", "hace 4 d") */
+export function relativeTime(date: string | Date) {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const diffMs = Date.now() - d.getTime();
+  const sec = Math.floor(diffMs / 1000);
+  if (sec < 5) return 'hace unos segundos';
+  if (sec < 60) return `hace ${sec} s`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `hace ${min} min`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `hace ${hr} h`;
+  const days = Math.floor(hr / 24);
+  if (days < 30) return `hace ${days} d`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `hace ${months} ${months === 1 ? 'mes' : 'meses'}`;
+  const years = Math.floor(months / 12);
+  return `hace ${years} ${years === 1 ? 'año' : 'años'}`;
+}
+
 export function getInitials(name: string) {
   return name
     .split(' ')

@@ -144,39 +144,73 @@ export default function StagesPage() {
         </div>
       )}
 
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Nueva etapa" size="md">
-        <form onSubmit={handleCreate} className="space-y-4">
-          <Input
-            id="name"
-            label="Nombre"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="Ej: En progreso"
-            required
-          />
-          <Textarea
-            id="description"
-            label="Descripción (opcional)"
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            placeholder="Describe esta etapa..."
-            rows={2}
-          />
-          <div>
-            <span className="block text-sm font-medium text-accent-700 mb-1">Color</span>
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="Nueva etapa"
+        subtitle="Las etapas definen las columnas del tablero Kanban"
+        size="lg"
+        icon={
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+          </svg>
+        }
+        footer={
+          <>
+            <Button type="button" variant="ghost" onClick={() => setShowModal(false)}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              form="new-stage-form"
+              loading={saving}
+              disabled={!formData.name.trim()}
+            >
+              Crear etapa
+            </Button>
+          </>
+        }
+      >
+        <form id="new-stage-form" onSubmit={handleCreate} className="space-y-6">
+          <section className="space-y-4">
+            <div>
+              <h3 className="text-xs font-semibold tracking-wider uppercase text-accent-500">
+                Información
+              </h3>
+              <p className="text-xs text-accent-400 mt-0.5">Cómo se identificará la etapa</p>
+            </div>
+            <Input
+              id="name"
+              label="Nombre"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="Ej. En progreso"
+              required
+            />
+            <Textarea
+              id="description"
+              label="Descripción (opcional)"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Qué representa esta etapa en el flujo"
+              rows={3}
+            />
+          </section>
+
+          <div className="h-px bg-accent-100" />
+
+          <section className="space-y-3">
+            <div>
+              <h3 className="text-xs font-semibold tracking-wider uppercase text-accent-500">
+                Identidad visual
+              </h3>
+              <p className="text-xs text-accent-400 mt-0.5">Color que se mostrará en el tablero</p>
+            </div>
             <ColorPicker
               value={formData.color}
               onChange={(color) => setFormData({ ...formData, color })}
             />
-          </div>
-          <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="ghost" onClick={() => setShowModal(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" loading={saving}>
-              Crear etapa
-            </Button>
-          </div>
+          </section>
         </form>
       </Modal>
 

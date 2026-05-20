@@ -9,7 +9,9 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
-  isAdmin: boolean;
+  permissions: string[];
+  can: (permission: string) => boolean;
+  canAny: (permissions: string[]) => boolean;
   login: (data: LoginRequest) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
@@ -60,13 +62,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push('/login');
   };
 
+  const permissions = user?.permissions ?? [];
+  const can = (permission: string) =>
+    permissions.includes('*') || permissions.includes(permission);
+  const canAny = (perms: string[]) =>
+    permissions.includes('*') || perms.some((p) => permissions.includes(p));
+
   return (
     <AuthContext.Provider
       value={{
         user,
         loading,
         isAuthenticated: !!user,
-        isAdmin: user?.role === 'ADMIN',
+        permissions,
+        can,
+        canAny,
         login,
         register,
         logout,

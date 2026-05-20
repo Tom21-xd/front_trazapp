@@ -134,36 +134,62 @@ export default function TagsPage() {
         </Card>
       )}
 
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Nueva etiqueta" size="sm">
-        <form onSubmit={handleCreate} className="space-y-4">
-          <Input
-            id="name"
-            label="Nombre"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="Ej: Frontend"
-            required
-          />
-          <div>
-            <span className="block text-sm font-medium text-accent-700 mb-1">Color</span>
-            <div className="flex items-center gap-3 flex-wrap">
-              <ColorPicker
-                value={formData.color}
-                onChange={(color) => setFormData({ ...formData, color })}
-              />
-              <Badge style={{ backgroundColor: formData.color, color: '#fff' }}>
-                {formData.name || 'Etiqueta'}
-              </Badge>
-            </div>
-          </div>
-          <div className="flex justify-end gap-3 pt-4">
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="Nueva etiqueta"
+        subtitle="Etiquetas para clasificar actividades y proyectos"
+        size="lg"
+        icon={
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+          </svg>
+        }
+        footer={
+          <>
             <Button type="button" variant="ghost" onClick={() => setShowModal(false)}>
               Cancelar
             </Button>
-            <Button type="submit" loading={saving}>
+            <Button
+              type="submit"
+              form="new-tag-form"
+              loading={saving}
+              disabled={!formData.name.trim()}
+            >
               Crear etiqueta
             </Button>
-          </div>
+          </>
+        }
+      >
+        <form id="new-tag-form" onSubmit={handleCreate} className="space-y-6">
+          <section className="space-y-4">
+            <div>
+              <h3 className="text-xs font-semibold tracking-wider uppercase text-accent-500">
+                Información
+              </h3>
+              <p className="text-xs text-accent-400 mt-0.5">Nombre y color que la identifican</p>
+            </div>
+            <Input
+              id="name"
+              label="Nombre"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="Ej. Urgente"
+              required
+            />
+            <div>
+              <span className="block text-sm font-medium text-accent-700 mb-2">Color</span>
+              <div className="flex items-center gap-4 flex-wrap">
+                <ColorPicker
+                  value={formData.color}
+                  onChange={(color) => setFormData({ ...formData, color })}
+                />
+                <Badge style={{ backgroundColor: formData.color, color: '#fff' }}>
+                  {formData.name || 'Etiqueta'}
+                </Badge>
+              </div>
+            </div>
+          </section>
         </form>
       </Modal>
 

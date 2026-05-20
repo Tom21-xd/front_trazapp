@@ -9,7 +9,8 @@ import { priorityColors, statusColors, formatDate } from '@/lib/utils';
 import type { Project, Activity, StageChangeRequest } from '@/types';
 
 export default function DashboardPage() {
-  const { isAdmin } = useAuthContext();
+  const { can } = useAuthContext();
+  const canReview = can('stagechange:review');
   const [projects, setProjects] = useState<Project[]>([]);
   const [myActivities, setMyActivities] = useState<Activity[]>([]);
   const [pendingRequests, setPendingRequests] = useState<StageChangeRequest[]>([]);
@@ -25,7 +26,7 @@ export default function DashboardPage() {
         setProjects(projectsData);
         setMyActivities(activitiesData);
 
-        if (isAdmin) {
+        if (canReview) {
           const requests = await stageChangesService.getPending();
           setPendingRequests(requests);
         }
@@ -37,7 +38,7 @@ export default function DashboardPage() {
     };
 
     loadData();
-  }, [isAdmin]);
+  }, [canReview]);
 
   if (loading) {
     return (
@@ -106,7 +107,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {isAdmin && (
+        {canReview && (
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center gap-4">

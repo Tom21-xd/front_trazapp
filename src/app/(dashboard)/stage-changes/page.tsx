@@ -8,7 +8,8 @@ import { stageChangeStatusColors, formatDateTime } from '@/lib/utils';
 import type { StageChangeRequest, ReviewStageChangeDto, PageMeta } from '@/types';
 
 export default function StageChangesPage() {
-  const { isAdmin } = useAuthContext();
+  const { can } = useAuthContext();
+  const canReview = can('stagechange:review');
   const toast = useToast();
   const [requests, setRequests] = useState<StageChangeRequest[]>([]);
   const [meta, setMeta] = useState<PageMeta | null>(null);
@@ -20,7 +21,7 @@ export default function StageChangesPage() {
 
   const loadRequests = useCallback(async () => {
     try {
-      const res = isAdmin
+      const res = canReview
         ? await stageChangesService.getPendingPage({ page })
         : await stageChangesService.getMyRequestsPage({ page });
       setRequests(res.data);
@@ -30,7 +31,7 @@ export default function StageChangesPage() {
     } finally {
       setLoading(false);
     }
-  }, [isAdmin, page, toast]);
+  }, [canReview, page, toast]);
 
   useEffect(() => {
     loadRequests();
@@ -65,10 +66,10 @@ export default function StageChangesPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl lg:text-2xl font-bold text-accent-900">
-          {isAdmin ? 'Solicitudes pendientes' : 'Mis solicitudes'}
+          {canReview ? 'Solicitudes pendientes' : 'Mis solicitudes'}
         </h1>
         <p className="text-sm lg:text-base text-accent-500">
-          {isAdmin ? 'Revisa y aprueba cambios de etapa' : 'Historial de tus solicitudes de cambio'}
+          {canReview ? 'Revisa y aprueba cambios de etapa' : 'Historial de tus solicitudes de cambio'}
         </p>
       </div>
 
@@ -121,7 +122,7 @@ export default function StageChangesPage() {
                       Solicitado por {request.requestedBy?.name} • {formatDateTime(request.createdAt)}
                     </div>
                   </div>
-                  {isAdmin && request.status === 'PENDIENTE' && (
+                  {canReview && request.status === 'PENDIENTE' && (
                     <Button
                       size="sm"
                       onClick={() => setSelectedRequest(request)}
@@ -152,85 +153,119 @@ export default function StageChangesPage() {
         isOpen={!!selectedRequest}
         onClose={() => setSelectedRequest(null)}
         title="Revisar solicitud"
-        size="lg"
-      >
-        <form onSubmit={handleReview} className="space-y-4">
-          <div className="p-4 bg-accent-50 rounded-lg">
-            <p className="font-medium text-accent-900 mb-2">{selectedRequest?.activity?.title}</p>
-            <p className="text-sm text-accent-600">{selectedRequest?.description}</p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4">
-            <label className="flex-1">
-              <input
-                type="radio"
-                name="status"
-                value="APROBADO"
-                checked={reviewForm.status === 'APROBADO'}
-                onChange={() => setReviewForm({ ...reviewForm, status: 'APROBADO' })}
-                className="sr-only peer"
-              />
-              <div className="p-4 border-2 rounded-lg cursor-pointer peer-checked:border-primary-500 peer-checked:bg-primary-50 border-accent-200 hover:border-accent-300 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="font-medium text-accent-900">Aprobar</p>
-                    <p className="text-sm text-accent-500">La actividad cambiará de etapa</p>
-                  </div>
-                </div>
-              </div>
-            </label>
-
-            <label className="flex-1">
-              <input
-                type="radio"
-                name="status"
-                value="RECHAZADO"
-                checked={reviewForm.status === 'RECHAZADO'}
-                onChange={() => setReviewForm({ ...reviewForm, status: 'RECHAZADO' })}
-                className="sr-only peer"
-              />
-              <div className="p-4 border-2 rounded-lg cursor-pointer peer-checked:border-secondary-500 peer-checked:bg-secondary-50 border-accent-200 hover:border-accent-300 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                    <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="font-medium text-accent-900">Rechazar</p>
-                    <p className="text-sm text-accent-500">La actividad permanecerá en su etapa</p>
-                  </div>
-                </div>
-              </div>
-            </label>
-          </div>
-
-          <Textarea
-            id="reviewComment"
-            label="Comentario (opcional)"
-            value={reviewForm.reviewComment || ''}
-            onChange={(e) => setReviewForm({ ...reviewForm, reviewComment: e.target.value })}
-            placeholder="Agrega un comentario sobre tu decisión..."
-            rows={3}
-          />
-
-          <div className="flex justify-end gap-3 pt-4">
+        subtitle="Aprueba o rechaza el cambio de etapa solicitado"
+        size="2xl"
+        icon={
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        }
+        footer={
+          <>
             <Button type="button" variant="ghost" onClick={() => setSelectedRequest(null)}>
               Cancelar
             </Button>
             <Button
               type="submit"
+              form="review-request-form"
               loading={saving}
               variant={reviewForm.status === 'APROBADO' ? 'primary' : 'danger'}
             >
-              {reviewForm.status === 'APROBADO' ? 'Aprobar' : 'Rechazar'}
+              {reviewForm.status === 'APROBADO' ? 'Aprobar solicitud' : 'Rechazar solicitud'}
             </Button>
-          </div>
+          </>
+        }
+      >
+        <form id="review-request-form" onSubmit={handleReview} className="space-y-6">
+          <section className="space-y-3">
+            <div>
+              <h3 className="text-xs font-semibold tracking-wider uppercase text-accent-500">
+                Solicitud
+              </h3>
+              <p className="text-xs text-accent-400 mt-0.5">
+                Detalle enviado por el solicitante
+              </p>
+            </div>
+            <div className="p-4 bg-accent-50 rounded-lg border border-accent-100">
+              <p className="font-medium text-accent-900 mb-1">
+                {selectedRequest?.activity?.title}
+              </p>
+              <p className="text-sm text-accent-600 whitespace-pre-wrap">
+                {selectedRequest?.description}
+              </p>
+            </div>
+          </section>
+
+          <div className="h-px bg-accent-100" />
+
+          <section className="space-y-3">
+            <div>
+              <h3 className="text-xs font-semibold tracking-wider uppercase text-accent-500">
+                Decisión
+              </h3>
+              <p className="text-xs text-accent-400 mt-0.5">
+                Selecciona si autorizas el cambio de etapa
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label>
+                <input
+                  type="radio"
+                  name="status"
+                  value="APROBADO"
+                  checked={reviewForm.status === 'APROBADO'}
+                  onChange={() => setReviewForm({ ...reviewForm, status: 'APROBADO' })}
+                  className="sr-only peer"
+                />
+                <div className="p-4 border-2 rounded-xl cursor-pointer peer-checked:border-primary-500 peer-checked:bg-primary-50 peer-checked:ring-2 peer-checked:ring-primary-200 border-accent-200 hover:border-accent-300 transition-all">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center shrink-0">
+                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-accent-900">Aprobar</p>
+                      <p className="text-sm text-accent-500">La actividad cambiará de etapa</p>
+                    </div>
+                  </div>
+                </div>
+              </label>
+
+              <label>
+                <input
+                  type="radio"
+                  name="status"
+                  value="RECHAZADO"
+                  checked={reviewForm.status === 'RECHAZADO'}
+                  onChange={() => setReviewForm({ ...reviewForm, status: 'RECHAZADO' })}
+                  className="sr-only peer"
+                />
+                <div className="p-4 border-2 rounded-xl cursor-pointer peer-checked:border-secondary-500 peer-checked:bg-secondary-50 peer-checked:ring-2 peer-checked:ring-secondary-200 border-accent-200 hover:border-accent-300 transition-all">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center shrink-0">
+                      <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-accent-900">Rechazar</p>
+                      <p className="text-sm text-accent-500">La actividad permanecerá en su etapa</p>
+                    </div>
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            <Textarea
+              id="reviewComment"
+              label="Comentario (opcional)"
+              value={reviewForm.reviewComment || ''}
+              onChange={(e) => setReviewForm({ ...reviewForm, reviewComment: e.target.value })}
+              placeholder="Agrega un comentario sobre tu decisión..."
+              rows={3}
+            />
+          </section>
         </form>
       </Modal>
     </div>

@@ -9,7 +9,7 @@ import { statusColors, formatDate } from '@/lib/utils';
 import { ProjectStatus, type Project, type PageMeta, type ProjectType } from '@/types';
 
 export default function ProjectsPage() {
-  const { isAdmin } = useAuthContext();
+  const { can } = useAuthContext();
   const [projects, setProjects] = useState<Project[]>([]);
   const [meta, setMeta] = useState<PageMeta | null>(null);
   const [page, setPage] = useState(1);
@@ -78,7 +78,7 @@ export default function ProjectsPage() {
           <h1 className="text-xl lg:text-2xl font-bold text-accent-900">Proyectos</h1>
           <p className="text-sm lg:text-base text-accent-500">Gestiona todos los proyectos</p>
         </div>
-        {isAdmin && (
+        {can('project:create') && (
           <Button onClick={() => setShowModal(true)} className="w-full sm:w-auto">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -129,53 +129,130 @@ export default function ProjectsPage() {
         <Pagination meta={meta} onPageChange={setPage} />
       )}
 
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Nuevo proyecto" size="lg">
-        <form onSubmit={handleCreate} className="space-y-4">
-          <Input
-            id="name"
-            label="Nombre del proyecto"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            required
-          />
-          <Textarea
-            id="description"
-            label="Descripción"
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            rows={3}
-          />
-          <Select
-            id="status"
-            label="Estado"
-            value={formData.status}
-            onChange={(e) => setFormData({ ...formData, status: e.target.value as ProjectStatus })}
-            options={[
-              { value: 'EN_PROGRESO', label: 'En progreso' },
-              { value: 'PAUSADO', label: 'Pausado' },
-              { value: 'COMPLETADO', label: 'Completado' },
-              { value: 'CANCELADO', label: 'Cancelado' },
-            ]}
-          />
-          <Select
-            id="projectType"
-            label="Tipo de proyecto (opcional)"
-            value={formData.projectTypeId}
-            onChange={(e) => setFormData({ ...formData, projectTypeId: e.target.value })}
-            placeholder="Sin tipo"
-            options={[
-              { value: '', label: 'Sin tipo' },
-              ...projectTypes.map((t) => ({ value: t.id, label: t.name })),
-            ]}
-          />
-          <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="ghost" onClick={() => setShowModal(false)}>
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="Nuevo proyecto"
+        subtitle="Define la información básica para iniciar el seguimiento"
+        size="2xl"
+        icon={
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+            />
+          </svg>
+        }
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setShowModal(false)}
+            >
               Cancelar
             </Button>
-            <Button type="submit" loading={saving}>
+            <Button
+              type="submit"
+              form="new-project-form"
+              loading={saving}
+              disabled={!formData.name.trim()}
+            >
               Crear proyecto
             </Button>
-          </div>
+          </>
+        }
+      >
+        <form
+          id="new-project-form"
+          onSubmit={handleCreate}
+          className="space-y-6"
+        >
+          <section className="space-y-4">
+            <div>
+              <h3 className="text-xs font-semibold tracking-wider uppercase text-accent-500">
+                Información general
+              </h3>
+              <p className="text-xs text-accent-400 mt-0.5">
+                Datos descriptivos del proyecto
+              </p>
+            </div>
+            <Input
+              id="name"
+              label="Nombre del proyecto"
+              placeholder="Ej. Pavimentación calle 12"
+              value={formData.name}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
+              required
+            />
+            <Textarea
+              id="description"
+              label="Descripción"
+              placeholder="Objetivo, alcance y consideraciones del proyecto"
+              value={formData.description}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+              rows={4}
+            />
+          </section>
+
+          <div className="h-px bg-accent-100" />
+
+          <section className="space-y-4">
+            <div>
+              <h3 className="text-xs font-semibold tracking-wider uppercase text-accent-500">
+                Clasificación
+              </h3>
+              <p className="text-xs text-accent-400 mt-0.5">
+                Estado inicial y tipo de proyecto
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Select
+                id="status"
+                label="Estado"
+                value={formData.status}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    status: e.target.value as ProjectStatus,
+                  })
+                }
+                options={[
+                  { value: 'EN_PROGRESO', label: 'En progreso' },
+                  { value: 'PAUSADO', label: 'Pausado' },
+                  { value: 'COMPLETADO', label: 'Completado' },
+                  { value: 'CANCELADO', label: 'Cancelado' },
+                ]}
+              />
+              <Select
+                id="projectType"
+                label="Tipo de proyecto"
+                value={formData.projectTypeId}
+                onChange={(e) =>
+                  setFormData({ ...formData, projectTypeId: e.target.value })
+                }
+                placeholder="Sin tipo"
+                options={[
+                  { value: '', label: 'Sin tipo' },
+                  ...projectTypes.map((t) => ({
+                    value: t.id,
+                    label: t.name,
+                  })),
+                ]}
+              />
+            </div>
+          </section>
         </form>
       </Modal>
     </div>

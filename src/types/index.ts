@@ -1,9 +1,4 @@
 // Enums
-export enum Role {
-  ADMIN = 'ADMIN',
-  EMPLEADO = 'EMPLEADO',
-}
-
 export enum Priority {
   BAJA = 'BAJA',
   MEDIA = 'MEDIA',
@@ -46,11 +41,31 @@ export interface User {
   name: string;
   phone?: string;
   avatar?: string;
-  role: Role;
   isActive: boolean;
   lastLoginAt?: string;
   createdAt: string;
   updatedAt: string;
+  // RBAC granular
+  permissions?: string[];
+  appRoleId?: string | null;
+  appRoleName?: string | null;
+  appRole?: { id: string; name: string } | null;
+}
+
+export interface AppRole {
+  id: string;
+  name: string;
+  description?: string | null;
+  isSystem: boolean;
+  userCount: number;
+  permissionKeys: string[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PermissionGroup {
+  group: string;
+  permissions: { key: string; description: string }[];
 }
 
 export interface Project {
@@ -118,7 +133,7 @@ export interface AuditLog {
   ipAddress?: string;
   userAgent?: string;
   createdAt: string;
-  user?: { id: string; name: string; email: string; role: Role };
+  user?: { id: string; name: string; email: string };
 }
 
 export interface Stage {
@@ -192,6 +207,47 @@ export interface Tag {
   name: string;
   color?: string;
   _count?: { projects: number; activities: number };
+}
+
+// Timeline / trazabilidad
+export type ActivityEventType =
+  | 'CREATED'
+  | 'UPDATED'
+  | 'STAGE_CHANGED'
+  | 'STAGE_CHANGE_REQUESTED'
+  | 'STAGE_CHANGE_APPROVED'
+  | 'STAGE_CHANGE_REJECTED'
+  | 'ASSIGNED'
+  | 'UNASSIGNED'
+  | 'COMMENT_ADDED'
+  | 'FILE_UPLOADED';
+
+export interface ActivityEvent {
+  id: string;
+  type: ActivityEventType;
+  createdAt: string;
+  activityId: string;
+  actorId: string;
+  actor?: { id: string; name: string; email: string; avatar?: string };
+  targetUserId?: string | null;
+  targetUser?: { id: string; name: string; email: string; avatar?: string } | null;
+  fromStageId?: string | null;
+  fromStage?: { id: string; name: string; color?: string } | null;
+  toStageId?: string | null;
+  toStage?: { id: string; name: string; color?: string } | null;
+  stageChangeRequestId?: string | null;
+  stageChangeRequest?: {
+    id: string;
+    status: StageChangeStatus;
+    description: string;
+    reviewComment?: string;
+  } | null;
+  commentId?: string | null;
+  comment?: { id: string; content: string } | null;
+  fileId?: string | null;
+  file?: { id: string; originalName: string; mimeType: string; size: number } | null;
+  note?: string | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 export interface StageChangeRequest {
@@ -272,7 +328,7 @@ export interface CreateUserDto {
   password: string;
   name: string;
   phone?: string;
-  role?: Role;
+  appRoleId?: string;
 }
 
 export interface ReviewStageChangeDto {

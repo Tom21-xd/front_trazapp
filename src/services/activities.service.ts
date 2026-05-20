@@ -1,6 +1,11 @@
 import api from '@/lib/api';
 import { toArray, toPage } from '@/lib/pagination';
-import type { Activity, CreateActivityDto, Paginated } from '@/types';
+import type {
+  Activity,
+  ActivityEvent,
+  CreateActivityDto,
+  Paginated,
+} from '@/types';
 
 interface Filters {
   [key: string]: string | number | undefined;
@@ -58,4 +63,10 @@ export const activitiesService = {
 
   changeStage: (id: string, stageId: string) =>
     api.patch<Activity>(`/activities/${id}`, { currentStageId: stageId }),
+
+  /** Línea de tiempo / trazabilidad de la actividad. */
+  getEvents: async (id: string): Promise<ActivityEvent[]> =>
+    toArray<ActivityEvent>(
+      await api.get(`/activities/${id}/events`, { all: 'true' }),
+    ),
 };

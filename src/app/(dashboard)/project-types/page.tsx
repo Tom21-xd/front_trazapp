@@ -164,26 +164,69 @@ export default function ProjectTypesPage() {
         <Pagination meta={meta} onPageChange={setPage} />
       )}
 
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Nuevo tipo de proyecto" size="md">
-        <form onSubmit={handleCreate} className="space-y-4">
-          <Input
-            id="name"
-            label="Nombre"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Ej: Obra pública"
-            required
-          />
-          <Textarea
-            id="description"
-            label="Descripción (opcional)"
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-            rows={2}
-          />
-          <div>
-            <span className="block text-sm font-medium text-accent-700 mb-1">Color</span>
-            <div className="flex items-center gap-3 flex-wrap">
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="Nuevo tipo de proyecto"
+        subtitle="Categorías para agrupar y filtrar proyectos"
+        size="lg"
+        icon={
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14-4H5m14 8H5m14 4H5" />
+          </svg>
+        }
+        footer={
+          <>
+            <Button type="button" variant="ghost" onClick={() => setShowModal(false)}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              form="new-project-type-form"
+              loading={saving}
+              disabled={!form.name.trim()}
+            >
+              Crear tipo
+            </Button>
+          </>
+        }
+      >
+        <form id="new-project-type-form" onSubmit={handleCreate} className="space-y-6">
+          <section className="space-y-4">
+            <div>
+              <h3 className="text-xs font-semibold tracking-wider uppercase text-accent-500">
+                Información
+              </h3>
+              <p className="text-xs text-accent-400 mt-0.5">Cómo se identifica el tipo</p>
+            </div>
+            <Input
+              id="name"
+              label="Nombre"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="Ej. Obra pública"
+              required
+            />
+            <Textarea
+              id="description"
+              label="Descripción (opcional)"
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              placeholder="Qué proyectos entran en esta categoría"
+              rows={3}
+            />
+          </section>
+
+          <div className="h-px bg-accent-100" />
+
+          <section className="space-y-3">
+            <div>
+              <h3 className="text-xs font-semibold tracking-wider uppercase text-accent-500">
+                Identidad visual
+              </h3>
+              <p className="text-xs text-accent-400 mt-0.5">Color asociado y vista previa</p>
+            </div>
+            <div className="flex items-center gap-4 flex-wrap">
               <ColorPicker
                 value={form.color}
                 onChange={(color) => setForm({ ...form, color })}
@@ -192,15 +235,7 @@ export default function ProjectTypesPage() {
                 {form.name || 'Tipo'}
               </Badge>
             </div>
-          </div>
-          <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="ghost" onClick={() => setShowModal(false)}>
-              Cancelar
-            </Button>
-            <Button type="submit" loading={saving}>
-              Crear tipo
-            </Button>
-          </div>
+          </section>
         </form>
       </Modal>
 

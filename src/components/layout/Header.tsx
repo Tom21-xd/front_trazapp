@@ -45,7 +45,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           <Avatar name={user?.name || 'U'} size="sm" />
           <div className="text-left hidden md:block">
             <p className="text-sm font-medium text-accent-900 truncate max-w-[120px]">{user?.name}</p>
-            <p className="text-xs text-accent-500">{user?.role === 'ADMIN' ? 'Administrador' : 'Empleado'}</p>
+            <p className="text-xs text-accent-500">{user?.appRoleName || 'Sin rol'}</p>
           </div>
           <svg className="w-4 h-4 text-accent-500 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
