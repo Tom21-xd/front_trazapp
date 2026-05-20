@@ -17,6 +17,7 @@ export enum StageChangeStatus {
   PENDIENTE = 'PENDIENTE',
   APROBADO = 'APROBADO',
   RECHAZADO = 'RECHAZADO',
+  CANCELADO = 'CANCELADO',
 }
 
 // Paginación (envelope uniforme de todos los listados)
@@ -217,10 +218,14 @@ export type ActivityEventType =
   | 'STAGE_CHANGE_REQUESTED'
   | 'STAGE_CHANGE_APPROVED'
   | 'STAGE_CHANGE_REJECTED'
+  | 'STAGE_CHANGE_CANCELLED'
   | 'ASSIGNED'
   | 'UNASSIGNED'
   | 'COMMENT_ADDED'
-  | 'FILE_UPLOADED';
+  | 'COMMENT_EDITED'
+  | 'COMMENT_DELETED'
+  | 'FILE_UPLOADED'
+  | 'FILE_DELETED';
 
 export interface ActivityEvent {
   id: string;
@@ -309,6 +314,7 @@ export interface CreateActivityDto {
   currentStageId: string;
   assignedUserIds?: string[];
   tagIds?: string[];
+  dependsOnActivityIds?: string[];
 }
 
 export interface CreateStageDto {

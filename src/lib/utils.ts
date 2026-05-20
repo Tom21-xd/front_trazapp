@@ -69,4 +69,5 @@ export const stageChangeStatusColors = {
   PENDIENTE: 'bg-yellow-100 text-yellow-800',
   APROBADO: 'bg-green-100 text-green-800',
   RECHAZADO: 'bg-red-100 text-red-800',
+  CANCELADO: 'bg-accent-200 text-accent-700',
 };

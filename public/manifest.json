@@ -38,16 +38,22 @@
   ],
   "shortcuts": [
     {
-      "name": "Dashboard",
-      "short_name": "Dashboard",
-      "description": "Ver el resumen de actividades",
-      "url": "/dashboard"
+      "name": "Tablero Kanban",
+      "short_name": "Tablero",
+      "description": "Tablero de actividades por etapa",
+      "url": "/board"
     },
     {
       "name": "Mis Tareas",
       "short_name": "Tareas",
       "description": "Ver mis tareas asignadas",
       "url": "/my-tasks"
+    },
+    {
+      "name": "Solicitudes",
+      "short_name": "Solicitudes",
+      "description": "Solicitudes de cambio de etapa",
+      "url": "/stage-changes"
     },
     {
       "name": "Proyectos",

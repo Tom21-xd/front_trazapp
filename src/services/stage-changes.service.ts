@@ -62,6 +62,9 @@ export const stageChangesService = {
   review: (id: string, data: ReviewStageChangeDto) =>
     api.patch<StageChangeRequest>(`/stage-changes/${id}/review`, data),
 
+  cancel: (id: string) =>
+    api.patch<StageChangeRequest>(`/stage-changes/${id}/cancel`),
+
   addComment: (id: string, content: string) =>
     api.post(`/stage-changes/${id}/comments`, { content }),
 };

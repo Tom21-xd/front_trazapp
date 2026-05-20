@@ -1,4 +1,4 @@
-const CACHE_NAME = 'trazapp-v2';
+const CACHE_NAME = 'trazapp-v3';
 const OFFLINE_URL = '/offline.html';
 
 // Solo assets ESTÁTICOS garantizados. NO incluir páginas protegidas

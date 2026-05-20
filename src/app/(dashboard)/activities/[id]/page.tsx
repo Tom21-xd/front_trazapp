@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -9,6 +9,8 @@ import {
   stageChangesService,
   commentsService,
   filesService,
+  usersService,
+  tagsService,
 } from '@/services';
 import { useAuthContext } from '@/store/AuthContext';
 import {
@@ -18,6 +20,7 @@ import {
   CardContent,
   Badge,
   Avatar,
+  Input,
   Modal,
   Textarea,
   Select,
@@ -30,58 +33,22 @@ import {
   relativeTime,
   cn,
 } from '@/lib/utils';
+import { Priority } from '@/types';
+import { AttachmentList } from '@/components/AttachmentList';
 import type {
   Activity,
   ActivityEvent,
   ActivityEventType,
   Stage,
   Comment,
-  FileAttachment,
+  User,
+  Tag,
 } from '@/types';
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function AttachmentList({ files }: { files?: FileAttachment[] }) {
-  const { error } = useToast();
-  const [busy, setBusy] = useState<string | null>(null);
-
-  if (!files || files.length === 0) return null;
-
-  const handleDownload = async (file: FileAttachment) => {
-    setBusy(file.id);
-    try {
-      await filesService.download(file.id, file.originalName);
-    } catch {
-      error('No se pudo descargar el archivo');
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  return (
-    <div className="flex flex-wrap gap-2 mt-2">
-      {files.map((file) => (
-        <button
-          key={file.id}
-          type="button"
-          onClick={() => handleDownload(file)}
-          disabled={busy === file.id}
-          title={`Descargar ${file.originalName}`}
-          className="inline-flex items-center gap-2 max-w-full px-3 py-1.5 bg-accent-50 hover:bg-accent-100 border border-accent-200 rounded-lg text-xs text-accent-700 transition-colors disabled:opacity-50"
-        >
-          <svg className="w-4 h-4 shrink-0 text-accent-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-          </svg>
-          <span className="truncate">{file.originalName}</span>
-          <span className="text-accent-400 shrink-0">{formatBytes(file.size)}</span>
-        </button>
-      ))}
-    </div>
-  );
 }
 
 // === Timeline ===
@@ -156,6 +123,17 @@ const EVENT_META: Record<
       </svg>
     ),
   },
+  STAGE_CHANGE_CANCELLED: {
+    color: 'text-accent-600',
+    bg: 'bg-accent-100',
+    ring: 'ring-accent-200',
+    verb: 'canceló la solicitud',
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
   ASSIGNED: {
     color: 'text-primary-700',
     bg: 'bg-primary-100',
@@ -189,6 +167,28 @@ const EVENT_META: Record<
       </svg>
     ),
   },
+  COMMENT_EDITED: {
+    color: 'text-violet-700',
+    bg: 'bg-violet-50',
+    ring: 'ring-violet-200',
+    verb: 'editó un comentario',
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+      </svg>
+    ),
+  },
+  COMMENT_DELETED: {
+    color: 'text-red-700',
+    bg: 'bg-red-50',
+    ring: 'ring-red-200',
+    verb: 'eliminó un comentario',
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a2 2 0 012-2h2a2 2 0 012 2v3" />
+      </svg>
+    ),
+  },
   FILE_UPLOADED: {
     color: 'text-amber-700',
     bg: 'bg-amber-100',
@@ -197,6 +197,17 @@ const EVENT_META: Record<
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+      </svg>
+    ),
+  },
+  FILE_DELETED: {
+    color: 'text-red-700',
+    bg: 'bg-red-50',
+    ring: 'ring-red-200',
+    verb: 'eliminó un archivo',
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a2 2 0 012-2h2a2 2 0 012 2v3" />
       </svg>
     ),
   },
@@ -248,11 +259,19 @@ function EventLine({ ev }: { ev: ActivityEvent }) {
       ) : null;
       break;
     case 'COMMENT_ADDED':
-      body = ev.comment?.content ? (
+    case 'COMMENT_EDITED': {
+      const snippet = ev.comment?.content ?? ev.note ?? '';
+      body = snippet ? (
         <span className="text-accent-700">
-          «{ev.comment.content.length > 140
-            ? `${ev.comment.content.slice(0, 140)}…`
-            : ev.comment.content}»
+          «{snippet.length > 140 ? `${snippet.slice(0, 140)}…` : snippet}»
+        </span>
+      ) : null;
+      break;
+    }
+    case 'COMMENT_DELETED':
+      body = ev.note ? (
+        <span className="text-accent-500 italic line-through">
+          «{ev.note.length > 140 ? `${ev.note.slice(0, 140)}…` : ev.note}»
         </span>
       ) : null;
       break;
@@ -263,6 +282,13 @@ function EventLine({ ev }: { ev: ActivityEvent }) {
             {ev.file.originalName}
           </span>
           <span className="text-xs text-accent-500">{formatBytes(ev.file.size)}</span>
+        </span>
+      ) : null;
+      break;
+    case 'FILE_DELETED':
+      body = ev.note ? (
+        <span className="text-accent-700 line-through truncate max-w-xs inline-block align-bottom">
+          {ev.note}
         </span>
       ) : null;
       break;
@@ -312,20 +338,88 @@ function EventLine({ ev }: { ev: ActivityEvent }) {
   );
 }
 
+type TimelineFilter = 'all' | 'stage' | 'people' | 'discussion' | 'changes';
+
+const FILTER_MATCH: Record<TimelineFilter, (t: ActivityEventType) => boolean> = {
+  all: () => true,
+  stage: (t) =>
+    t === 'STAGE_CHANGED' ||
+    t === 'STAGE_CHANGE_REQUESTED' ||
+    t === 'STAGE_CHANGE_APPROVED' ||
+    t === 'STAGE_CHANGE_REJECTED' ||
+    t === 'STAGE_CHANGE_CANCELLED',
+  people: (t) => t === 'ASSIGNED' || t === 'UNASSIGNED',
+  discussion: (t) =>
+    t === 'COMMENT_ADDED' || t === 'COMMENT_EDITED' || t === 'COMMENT_DELETED',
+  changes: (t) =>
+    t === 'CREATED' ||
+    t === 'UPDATED' ||
+    t === 'FILE_UPLOADED' ||
+    t === 'FILE_DELETED',
+};
+
+const FILTER_LABELS: Record<TimelineFilter, string> = {
+  all: 'Todo',
+  stage: 'Etapas',
+  people: 'Asignaciones',
+  discussion: 'Comentarios',
+  changes: 'Cambios y archivos',
+};
+
 function Timeline({ events }: { events: ActivityEvent[] }) {
-  if (events.length === 0) {
-    return (
-      <p className="text-sm text-accent-500 py-4">
-        Aún no hay eventos registrados.
-      </p>
-    );
-  }
+  const [filter, setFilter] = useState<TimelineFilter>('all');
+
+  const filtered = events.filter((e) => FILTER_MATCH[filter](e.type));
+  const filterKeys = Object.keys(FILTER_LABELS) as TimelineFilter[];
+
   return (
-    <ol className="space-y-0 relative">
-      {events.map((ev) => (
-        <EventLine key={ev.id} ev={ev} />
-      ))}
-    </ol>
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-1.5">
+        {filterKeys.map((key) => {
+          const count =
+            key === 'all'
+              ? events.length
+              : events.filter((e) => FILTER_MATCH[key](e.type)).length;
+          const active = filter === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setFilter(key)}
+              className={cn(
+                'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors',
+                active
+                  ? 'bg-primary-600 text-white'
+                  : 'bg-accent-100 text-accent-700 hover:bg-accent-200',
+              )}
+            >
+              {FILTER_LABELS[key]}
+              <span
+                className={cn(
+                  'inline-flex items-center justify-center text-[10px] font-semibold px-1.5 rounded-full min-w-5',
+                  active ? 'bg-white/25 text-white' : 'bg-white text-accent-600',
+                )}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {filtered.length === 0 ? (
+        <p className="text-sm text-accent-500 py-4">
+          {events.length === 0
+            ? 'Aún no hay eventos registrados.'
+            : 'No hay eventos de este tipo.'}
+        </p>
+      ) : (
+        <ol className="space-y-0 relative">
+          {filtered.map((ev) => (
+            <EventLine key={ev.id} ev={ev} />
+          ))}
+        </ol>
+      )}
+    </div>
   );
 }
 
@@ -349,7 +443,21 @@ type ActivityFull = Omit<Activity, 'dependsOn' | 'dependedBy'> & {
   stageHistory?: StageHistoryEntry[];
   dependsOn?: DependencyRef[];
   dependedBy?: DependencyRef[];
+  stageChangeRequests?: ActivityStageChangeRequest[];
 };
+
+interface ActivityStageChangeRequest {
+  id: string;
+  status: 'PENDIENTE' | 'APROBADO' | 'RECHAZADO' | 'CANCELADO';
+  description: string;
+  reviewComment?: string | null;
+  createdAt: string;
+  reviewedAt?: string | null;
+  fromStage?: { id: string; name: string; color?: string | null } | null;
+  toStage?: { id: string; name: string; color?: string | null } | null;
+  requestedBy?: { id: string; name: string; email: string; avatar?: string } | null;
+  reviewedBy?: { id: string; name: string; email: string } | null;
+}
 
 export default function ActivityDetailPage() {
   const params = useParams();
@@ -360,17 +468,56 @@ export default function ActivityDetailPage() {
   const [stages, setStages] = useState<Stage[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [events, setEvents] = useState<ActivityEvent[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showStageChangeModal, setShowStageChangeModal] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignSelection, setAssignSelection] = useState<string[]>([]);
+  const [savingAssign, setSavingAssign] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState<{
+    title: string;
+    description: string;
+    priority: Priority;
+    dueDate: string;
+    tagIds: string[];
+    dependsOnActivityIds: string[];
+  }>({
+    title: '',
+    description: '',
+    priority: Priority.MEDIA,
+    dueDate: '',
+    tagIds: [],
+    dependsOnActivityIds: [],
+  });
+  const [allTags, setAllTags] = useState<Tag[]>([]);
+  const [siblingActivities, setSiblingActivities] = useState<
+    { id: string; title: string }[]
+  >([]);
+  const [savingEdit, setSavingEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [stageChangeForm, setStageChangeForm] = useState({ toStageId: '', description: '' });
+  const [reviewingRequestId, setReviewingRequestId] = useState<string | null>(null);
+  const [reviewDecision, setReviewDecision] = useState<'APROBADO' | 'RECHAZADO'>('APROBADO');
+  const [reviewComment, setReviewComment] = useState('');
+  const [savingReview, setSavingReview] = useState(false);
+  const [cancelRequestId, setCancelRequestId] = useState<string | null>(null);
+  const [cancellingRequest, setCancellingRequest] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [commentFiles, setCommentFiles] = useState<File[]>([]);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentContent, setEditingCommentContent] = useState('');
+  const [savingCommentEdit, setSavingCommentEdit] = useState(false);
+  const [deleteCommentId, setDeleteCommentId] = useState<string | null>(null);
+  const [deletingComment, setDeletingComment] = useState(false);
   const [uploadingActivityFiles, setUploadingActivityFiles] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const canAssign = can('activity:assign');
   const activityId = params.id as string;
+  const heroSentinelRef = useRef<HTMLDivElement | null>(null);
+  const [heroOffscreen, setHeroOffscreen] = useState(false);
 
   const loadData = async () => {
     try {
@@ -395,6 +542,156 @@ export default function ActivityDetailPage() {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activityId]);
+
+  useEffect(() => {
+    if (!canAssign) return;
+    usersService
+      .getAll()
+      .then((data) => setAllUsers(data.filter((u) => u.isActive)))
+      .catch(() => setAllUsers([]));
+  }, [canAssign]);
+
+  useEffect(() => {
+    if (!can('activity:update')) return;
+    tagsService
+      .getAll()
+      .then(setAllTags)
+      .catch(() => setAllTags([]));
+  }, [can]);
+
+  useEffect(() => {
+    if (!can('activity:update')) return;
+    if (!activity?.projectId) return;
+    activitiesService
+      .getAll({ projectId: activity.projectId })
+      .then((list) =>
+        setSiblingActivities(
+          list
+            .filter((a) => a.id !== activity.id)
+            .map((a) => ({ id: a.id, title: a.title })),
+        ),
+      )
+      .catch(() => setSiblingActivities([]));
+  }, [activity?.projectId, activity?.id, can]);
+
+  useEffect(() => {
+    const sentinel = heroSentinelRef.current;
+    if (!sentinel) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => setHeroOffscreen(!entry.isIntersecting),
+      { rootMargin: '0px', threshold: 0 },
+    );
+    obs.observe(sentinel);
+    return () => obs.disconnect();
+  }, [activity]);
+
+  const openAssignModal = () => {
+    const current =
+      activity?.assignments?.map((a) => a.userId).filter(Boolean) ??
+      activity?.assignedUsers?.map((u) => u.id) ??
+      [];
+    setAssignSelection(current as string[]);
+    setShowAssignModal(true);
+  };
+
+  const toggleAssignSelection = (userId: string) => {
+    setAssignSelection((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
+        : [...prev, userId],
+    );
+  };
+
+  const handleSaveAssignments = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingAssign(true);
+    try {
+      await activitiesService.assign(activityId, assignSelection);
+      toast.success('Asignaciones actualizadas');
+      setShowAssignModal(false);
+      await loadData();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'No se pudieron guardar los cambios',
+      );
+    } finally {
+      setSavingAssign(false);
+    }
+  };
+
+  const openEditModal = () => {
+    if (!activity) return;
+    setEditForm({
+      title: activity.title,
+      description: activity.description ?? '',
+      priority: activity.priority,
+      dueDate: activity.dueDate
+        ? new Date(activity.dueDate).toISOString().slice(0, 16)
+        : '',
+      tagIds: (activity.tags ?? []).map((t) => t.id),
+      dependsOnActivityIds: (activity.dependsOn ?? [])
+        .map((d) => d.requiredActivity?.id)
+        .filter((id): id is string => !!id),
+    });
+    setShowEditModal(true);
+  };
+
+  const toggleEditTag = (tagId: string) => {
+    setEditForm((f) => ({
+      ...f,
+      tagIds: f.tagIds.includes(tagId)
+        ? f.tagIds.filter((id) => id !== tagId)
+        : [...f.tagIds, tagId],
+    }));
+  };
+
+  const toggleEditDependency = (activityIdRef: string) => {
+    setEditForm((f) => ({
+      ...f,
+      dependsOnActivityIds: f.dependsOnActivityIds.includes(activityIdRef)
+        ? f.dependsOnActivityIds.filter((id) => id !== activityIdRef)
+        : [...f.dependsOnActivityIds, activityIdRef],
+    }));
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editForm.title.trim()) return;
+    setSavingEdit(true);
+    try {
+      await activitiesService.update(activityId, {
+        title: editForm.title.trim(),
+        description: editForm.description.trim() || undefined,
+        priority: editForm.priority,
+        dueDate: editForm.dueDate
+          ? new Date(editForm.dueDate).toISOString()
+          : undefined,
+        tagIds: editForm.tagIds,
+        dependsOnActivityIds: editForm.dependsOnActivityIds,
+      });
+      toast.success('Actividad actualizada');
+      setShowEditModal(false);
+      await loadData();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'No se pudo guardar la actividad',
+      );
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleQuickUnassign = async (userId: string) => {
+    try {
+      await activitiesService.unassign(activityId, userId);
+      toast.success('Usuario retirado');
+      await loadData();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'No se pudo retirar al usuario',
+      );
+    }
+  };
 
   const handleStageChangeRequest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -453,6 +750,118 @@ export default function ActivityDetailPage() {
       setSaving(false);
     }
   };
+
+  const startReview = (
+    requestId: string,
+    decision: 'APROBADO' | 'RECHAZADO',
+  ) => {
+    setReviewingRequestId(requestId);
+    setReviewDecision(decision);
+    setReviewComment('');
+  };
+
+  const cancelReview = () => {
+    setReviewingRequestId(null);
+    setReviewComment('');
+  };
+
+  const handleCancelRequest = async () => {
+    if (!cancelRequestId) return;
+    setCancellingRequest(true);
+    try {
+      await stageChangesService.cancel(cancelRequestId);
+      toast.success('Solicitud cancelada');
+      setCancelRequestId(null);
+      await loadData();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'No se pudo cancelar la solicitud',
+      );
+    } finally {
+      setCancellingRequest(false);
+    }
+  };
+
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewingRequestId) return;
+    setSavingReview(true);
+    try {
+      await stageChangesService.review(reviewingRequestId, {
+        status: reviewDecision,
+        reviewComment: reviewComment.trim() || undefined,
+      });
+      toast.success(
+        reviewDecision === 'APROBADO'
+          ? 'Solicitud aprobada'
+          : 'Solicitud rechazada',
+      );
+      cancelReview();
+      await loadData();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'No se pudo procesar la solicitud',
+      );
+    } finally {
+      setSavingReview(false);
+    }
+  };
+
+  const startEditComment = (comment: Comment) => {
+    setEditingCommentId(comment.id);
+    setEditingCommentContent(comment.content);
+  };
+
+  const cancelEditComment = () => {
+    setEditingCommentId(null);
+    setEditingCommentContent('');
+  };
+
+  const handleSaveEditComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCommentId || !editingCommentContent.trim()) return;
+    setSavingCommentEdit(true);
+    try {
+      await commentsService.update(editingCommentId, editingCommentContent.trim());
+      toast.success('Comentario actualizado');
+      setEditingCommentId(null);
+      setEditingCommentContent('');
+      await loadData();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'No se pudo guardar el comentario',
+      );
+    } finally {
+      setSavingCommentEdit(false);
+    }
+  };
+
+  const handleDeleteComment = async () => {
+    if (!deleteCommentId) return;
+    setDeletingComment(true);
+    try {
+      await commentsService.delete(deleteCommentId);
+      toast.success('Comentario eliminado');
+      setDeleteCommentId(null);
+      await loadData();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'No se pudo eliminar el comentario',
+      );
+    } finally {
+      setDeletingComment(false);
+    }
+  };
+
+  const canEditComment = (c: Comment) =>
+    c.userId === user?.id
+      ? can('comment:update:own') || can('comment:update:any')
+      : can('comment:update:any');
+
+  const canDeleteComment = (c: Comment) =>
+    c.userId === user?.id
+      ? can('comment:delete:own') || can('comment:delete:any')
+      : can('comment:delete:any');
 
   const handleActivityFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -539,8 +948,46 @@ export default function ActivityDetailPage() {
 
   return (
     <div className="space-y-6">
+      {/* Sticky compact bar (visible al scrollear más allá del hero) */}
+      <div
+        className={cn(
+          'fixed top-0 left-0 right-0 z-30 transition-all duration-200',
+          heroOffscreen
+            ? 'opacity-100 translate-y-0 pointer-events-auto'
+            : 'opacity-0 -translate-y-4 pointer-events-none',
+        )}
+      >
+        <div className="bg-white/95 backdrop-blur-sm border-b border-accent-200 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 lg:px-6 py-2.5 flex items-center gap-3">
+            <StageChip stage={activity.currentStage} />
+            <h2 className="text-sm font-semibold text-accent-900 truncate flex-1 min-w-0">
+              {activity.title}
+            </h2>
+            <div className="hidden sm:flex items-center gap-2 shrink-0">
+              {can('stagechange:create') && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowStageChangeModal(true)}
+                >
+                  Solicitar cambio
+                </Button>
+              )}
+              {can('activity:update') && (
+                <Button size="sm" variant="ghost" onClick={openEditModal}>
+                  Editar
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* HERO */}
-      <div className="bg-white border border-accent-200 rounded-2xl shadow-sm overflow-hidden">
+      <div
+        className="bg-white border border-accent-200 rounded-2xl shadow-sm overflow-hidden border-l-4"
+        style={{ borderLeftColor: activity.currentStage?.color || '#9CA3AF' }}
+      >
         {/* Top bar: breadcrumb + acciones */}
         <div className="flex items-center justify-between gap-3 px-6 pt-4 pb-2">
           <nav className="flex items-center gap-1.5 text-xs text-accent-500 min-w-0">
@@ -566,6 +1013,14 @@ export default function ActivityDetailPage() {
             <span className="text-accent-700 truncate">{activity.title}</span>
           </nav>
           <div className="flex items-center gap-2 shrink-0">
+            {can('activity:update') && (
+              <Button variant="outline" size="sm" onClick={openEditModal}>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Editar
+              </Button>
+            )}
             {can('activity:delete') && (
               <Button variant="danger" size="sm" onClick={() => setShowDeleteConfirm(true)}>
                 Eliminar
@@ -686,9 +1141,12 @@ export default function ActivityDetailPage() {
         )}
       </div>
 
+      {/* Centinela: cuando se sale de viewport, la barra sticky aparece */}
+      <div ref={heroSentinelRef} aria-hidden className="h-px -mt-px" />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Columna principal */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-6 order-2 lg:order-1">
           {/* Descripción */}
           <Card>
             <CardHeader>
@@ -724,25 +1182,105 @@ export default function ActivityDetailPage() {
               {comments.length === 0 && (
                 <p className="text-sm text-accent-500">Aún no hay comentarios.</p>
               )}
-              {comments.map((comment) => (
-                <div key={comment.id} className="flex gap-3">
-                  <Avatar name={comment.user?.name || 'U'} size="sm" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <span className="font-medium text-sm text-accent-900">
-                        {comment.user?.name}
-                      </span>
-                      <span className="text-xs text-accent-400">
-                        {formatDateTime(comment.createdAt)}
-                      </span>
+              {comments.map((comment) => {
+                const isEditing = editingCommentId === comment.id;
+                const edited =
+                  new Date(comment.updatedAt).getTime() -
+                    new Date(comment.createdAt).getTime() >
+                  2000;
+                return (
+                  <div key={comment.id} className="flex gap-3 group">
+                    <Avatar name={comment.user?.name || 'U'} size="sm" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span className="font-medium text-sm text-accent-900">
+                          {comment.user?.name}
+                        </span>
+                        <span
+                          className="text-xs text-accent-400"
+                          title={formatDateTime(comment.createdAt)}
+                        >
+                          {relativeTime(comment.createdAt)}
+                        </span>
+                        {edited && (
+                          <span
+                            className="text-xs text-accent-400 italic"
+                            title={`Editado: ${formatDateTime(comment.updatedAt)}`}
+                          >
+                            (editado)
+                          </span>
+                        )}
+                        {!isEditing && (
+                          <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {canEditComment(comment) && (
+                              <button
+                                type="button"
+                                onClick={() => startEditComment(comment)}
+                                title="Editar"
+                                className="text-accent-400 hover:text-primary-600 p-1"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                            )}
+                            {canDeleteComment(comment) && (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteCommentId(comment.id)}
+                                title="Eliminar"
+                                className="text-accent-400 hover:text-red-600 p-1"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a2 2 0 012-2h2a2 2 0 012 2v3" />
+                                </svg>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      {isEditing ? (
+                        <form
+                          onSubmit={handleSaveEditComment}
+                          className="space-y-2"
+                        >
+                          <Textarea
+                            value={editingCommentContent}
+                            onChange={(e) =>
+                              setEditingCommentContent(e.target.value)
+                            }
+                            rows={3}
+                            autoFocus
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              type="submit"
+                              size="sm"
+                              loading={savingCommentEdit}
+                              disabled={!editingCommentContent.trim()}
+                            >
+                              Guardar
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={cancelEditComment}
+                            >
+                              Cancelar
+                            </Button>
+                          </div>
+                        </form>
+                      ) : (
+                        <p className="text-sm text-accent-700 whitespace-pre-wrap wrap-break-word">
+                          {comment.content}
+                        </p>
+                      )}
+                      {!isEditing && <AttachmentList files={comment.files} />}
                     </div>
-                    <p className="text-sm text-accent-700 whitespace-pre-wrap wrap-break-word">
-                      {comment.content}
-                    </p>
-                    <AttachmentList files={comment.files} />
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {can('comment:create') && (
                 <form
@@ -818,6 +1356,182 @@ export default function ActivityDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* Solicitudes de cambio de etapa */}
+          {(activity.stageChangeRequests?.length ?? 0) > 0 && (
+            <Card>
+              <CardHeader>
+                <h2 className="text-lg font-semibold text-accent-900">
+                  Solicitudes de cambio ({activity.stageChangeRequests?.length})
+                </h2>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {activity.stageChangeRequests?.map((req) => {
+                  const statusStyle =
+                    req.status === 'PENDIENTE'
+                      ? 'bg-yellow-100 text-yellow-800 ring-yellow-200'
+                      : req.status === 'APROBADO'
+                        ? 'bg-green-100 text-green-800 ring-green-200'
+                        : req.status === 'CANCELADO'
+                          ? 'bg-accent-200 text-accent-700 ring-accent-300'
+                          : 'bg-red-100 text-red-800 ring-red-200';
+                  const isReviewing = reviewingRequestId === req.id;
+                  const canReview =
+                    req.status === 'PENDIENTE' && can('stagechange:review');
+                  const canCancel =
+                    req.status === 'PENDIENTE' &&
+                    (req.requestedBy?.id === user?.id ||
+                      can('stagechange:manage:any'));
+                  return (
+                    <div
+                      key={req.id}
+                      className="border border-accent-200 rounded-xl p-4 space-y-3"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={cn(
+                            'inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ring-1 ring-inset',
+                            statusStyle,
+                          )}
+                        >
+                          {req.status}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 text-sm">
+                          <StageChip stage={req.fromStage} />
+                          <svg className="w-3 h-3 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                          <StageChip stage={req.toStage} />
+                        </span>
+                        <span
+                          className="text-xs text-accent-500 ml-auto"
+                          title={formatDateTime(req.createdAt)}
+                        >
+                          {relativeTime(req.createdAt)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-start gap-2.5">
+                        <Avatar name={req.requestedBy?.name || 'U'} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm">
+                            <span className="font-medium text-accent-900">
+                              {req.requestedBy?.name ?? 'Usuario'}
+                            </span>{' '}
+                            <span className="text-accent-500">solicitó</span>
+                          </p>
+                          <p className="text-sm text-accent-700 whitespace-pre-wrap wrap-break-word mt-0.5">
+                            {req.description}
+                          </p>
+                        </div>
+                      </div>
+
+                      {req.reviewedBy && (
+                        <div className="flex items-start gap-2.5 pl-4 border-l-2 border-accent-100">
+                          <Avatar name={req.reviewedBy.name} size="sm" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm">
+                              <span className="font-medium text-accent-900">
+                                {req.reviewedBy.name}
+                              </span>{' '}
+                              <span className="text-accent-500">
+                                {req.status === 'APROBADO' ? 'aprobó' : 'rechazó'}
+                                {req.reviewedAt && (
+                                  <>
+                                    {' '}·{' '}
+                                    <span title={formatDateTime(req.reviewedAt)}>
+                                      {relativeTime(req.reviewedAt)}
+                                    </span>
+                                  </>
+                                )}
+                              </span>
+                            </p>
+                            {req.reviewComment && (
+                              <p className="text-sm text-accent-700 whitespace-pre-wrap mt-0.5">
+                                {req.reviewComment}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {!isReviewing && (canReview || canCancel) && (
+                        <div className="flex flex-wrap gap-2 pt-1">
+                          {canReview && (
+                            <>
+                              <Button
+                                size="sm"
+                                onClick={() => startReview(req.id, 'APROBADO')}
+                              >
+                                Aprobar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="danger"
+                                onClick={() => startReview(req.id, 'RECHAZADO')}
+                              >
+                                Rechazar
+                              </Button>
+                            </>
+                          )}
+                          {canCancel && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setCancelRequestId(req.id)}
+                            >
+                              Cancelar solicitud
+                            </Button>
+                          )}
+                        </div>
+                      )}
+
+                      {canReview && isReviewing && (
+                        <form
+                          onSubmit={handleSubmitReview}
+                          className="pt-2 border-t border-accent-100 space-y-2"
+                        >
+                          <p className="text-xs text-accent-500">
+                            {reviewDecision === 'APROBADO'
+                              ? 'La actividad se moverá a la nueva etapa.'
+                              : 'La actividad permanecerá en su etapa actual.'}
+                          </p>
+                          <Textarea
+                            value={reviewComment}
+                            onChange={(e) => setReviewComment(e.target.value)}
+                            placeholder="Comentario (opcional)"
+                            rows={2}
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              type="submit"
+                              size="sm"
+                              variant={
+                                reviewDecision === 'APROBADO' ? 'primary' : 'danger'
+                              }
+                              loading={savingReview}
+                            >
+                              {reviewDecision === 'APROBADO'
+                                ? 'Confirmar aprobación'
+                                : 'Confirmar rechazo'}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={cancelReview}
+                            >
+                              Cancelar
+                            </Button>
+                          </div>
+                        </form>
+                      )}
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Adjuntos directos */}
           <Card>
@@ -918,18 +1632,32 @@ export default function ActivityDetailPage() {
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-6">
+        <div className="space-y-6 order-1 lg:order-2">
           <Card>
             <CardContent className="p-0 divide-y divide-accent-100">
               {/* Asignados */}
               <div className="p-4">
-                <p className="text-xs font-semibold tracking-wider uppercase text-accent-500 mb-3">
-                  Asignados ({assignedUsers.length})
-                </p>
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <p className="text-xs font-semibold tracking-wider uppercase text-accent-500">
+                    Asignados ({assignedUsers.length})
+                  </p>
+                  {canAssign && (
+                    <button
+                      type="button"
+                      onClick={openAssignModal}
+                      className="text-xs font-medium text-primary-600 hover:text-primary-700"
+                    >
+                      Gestionar
+                    </button>
+                  )}
+                </div>
                 {assignedUsers.length > 0 ? (
                   <div className="space-y-2">
                     {assignedUsers.map((a) => (
-                      <div key={a.id} className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        key={a.id}
+                        className="group flex items-center gap-2.5 min-w-0"
+                      >
                         <Avatar name={a.user?.name || 'U'} size="sm" />
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-accent-900 truncate">
@@ -939,6 +1667,18 @@ export default function ActivityDetailPage() {
                             {a.user?.email}
                           </p>
                         </div>
+                        {canAssign && a.user?.id && (
+                          <button
+                            type="button"
+                            onClick={() => handleQuickUnassign(a.user!.id)}
+                            title="Retirar"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity text-accent-400 hover:text-red-600 p-1"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1159,6 +1899,340 @@ export default function ActivityDetailPage() {
         </form>
       </Modal>
 
+      <Modal
+        isOpen={showAssignModal}
+        onClose={() => setShowAssignModal(false)}
+        title="Gestionar asignados"
+        subtitle="Marca quién es responsable. Los cambios se registran en la trazabilidad."
+        size="lg"
+        icon={
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-5.13a4 4 0 11-8 0 4 4 0 018 0zM21 12a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+        }
+        footer={
+          <>
+            <Button type="button" variant="ghost" onClick={() => setShowAssignModal(false)}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              form="assign-form"
+              loading={savingAssign}
+            >
+              Guardar
+            </Button>
+          </>
+        }
+      >
+        <form id="assign-form" onSubmit={handleSaveAssignments} className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-accent-500">
+              <span className="font-semibold text-primary-700">
+                {assignSelection.length}
+              </span>{' '}
+              de {allUsers.length} seleccionado{assignSelection.length === 1 ? '' : 's'}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setAssignSelection(allUsers.map((u) => u.id))}
+                className="text-xs font-medium text-primary-700 hover:text-primary-800"
+              >
+                Seleccionar todo
+              </button>
+              <button
+                type="button"
+                onClick={() => setAssignSelection([])}
+                className="text-xs font-medium text-accent-500 hover:text-accent-700"
+              >
+                Limpiar
+              </button>
+            </div>
+          </div>
+          {allUsers.length === 0 ? (
+            <div className="p-6 text-center text-sm text-accent-500 border border-dashed border-accent-200 rounded-xl">
+              No hay usuarios disponibles
+            </div>
+          ) : (
+            <div className="max-h-80 overflow-y-auto border border-accent-200 rounded-xl divide-y divide-accent-100">
+              {allUsers.map((u) => {
+                const checked = assignSelection.includes(u.id);
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => toggleAssignSelection(u.id)}
+                    className={cn(
+                      'w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors',
+                      checked
+                        ? 'bg-primary-50/60 hover:bg-primary-50'
+                        : 'hover:bg-accent-50',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors',
+                        checked
+                          ? 'bg-primary-600 border-primary-600'
+                          : 'bg-white border-accent-300',
+                      )}
+                    >
+                      {checked && (
+                        <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </span>
+                    <Avatar name={u.name} size="sm" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-accent-900 truncate">
+                        {u.name}
+                      </p>
+                      <p className="text-xs text-accent-500 truncate">{u.email}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="Editar actividad"
+        subtitle="Los cambios quedan registrados en la trazabilidad"
+        size="2xl"
+        icon={
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+        }
+        footer={
+          <>
+            <Button type="button" variant="ghost" onClick={() => setShowEditModal(false)}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              form="edit-activity-form"
+              loading={savingEdit}
+              disabled={!editForm.title.trim()}
+            >
+              Guardar cambios
+            </Button>
+          </>
+        }
+      >
+        <form
+          id="edit-activity-form"
+          onSubmit={handleSaveEdit}
+          className="space-y-6"
+        >
+          <section className="space-y-4">
+            <div>
+              <h3 className="text-xs font-semibold tracking-wider uppercase text-accent-500">
+                Información general
+              </h3>
+              <p className="text-xs text-accent-400 mt-0.5">
+                Qué hay que hacer
+              </p>
+            </div>
+            <Input
+              id="edit-title"
+              label="Título"
+              value={editForm.title}
+              onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+              required
+            />
+            <Textarea
+              id="edit-description"
+              label="Descripción"
+              placeholder="Contexto, criterios de aceptación o pasos a seguir"
+              value={editForm.description}
+              onChange={(e) =>
+                setEditForm({ ...editForm, description: e.target.value })
+              }
+              rows={5}
+            />
+          </section>
+
+          <div className="h-px bg-accent-100" />
+
+          <section className="space-y-4">
+            <div>
+              <h3 className="text-xs font-semibold tracking-wider uppercase text-accent-500">
+                Planificación
+              </h3>
+              <p className="text-xs text-accent-400 mt-0.5">Urgencia y fecha límite</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Select
+                id="edit-priority"
+                label="Prioridad"
+                value={editForm.priority}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, priority: e.target.value as Priority })
+                }
+                options={[
+                  { value: 'BAJA', label: 'Baja' },
+                  { value: 'MEDIA', label: 'Media' },
+                  { value: 'ALTA', label: 'Alta' },
+                  { value: 'URGENTE', label: 'Urgente' },
+                ]}
+              />
+              <div className="w-full">
+                <label
+                  htmlFor="edit-due"
+                  className="block text-sm font-medium text-accent-700 mb-1"
+                >
+                  Fecha límite
+                </label>
+                <input
+                  id="edit-due"
+                  type="datetime-local"
+                  value={editForm.dueDate}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, dueDate: e.target.value })
+                  }
+                  className="w-full px-4 py-2 rounded-lg border border-accent-300 bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors"
+                />
+              </div>
+            </div>
+          </section>
+
+          {allTags.length > 0 && (
+            <>
+              <div className="h-px bg-accent-100" />
+              <section className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-xs font-semibold tracking-wider uppercase text-accent-500">
+                      Etiquetas
+                    </h3>
+                    <p className="text-xs text-accent-400 mt-0.5">
+                      Clasifica la actividad para encontrarla rápido
+                    </p>
+                  </div>
+                  <span className="text-xs text-accent-500 shrink-0">
+                    <span className="font-semibold text-primary-700">
+                      {editForm.tagIds.length}
+                    </span>{' '}
+                    de {allTags.length}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {allTags.map((tag) => {
+                    const selected = editForm.tagIds.includes(tag.id);
+                    return (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onClick={() => toggleEditTag(tag.id)}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm border transition-all',
+                          selected
+                            ? 'border-transparent text-white shadow-sm'
+                            : 'border-accent-200 bg-white text-accent-700 hover:bg-accent-50',
+                        )}
+                        style={
+                          selected
+                            ? { backgroundColor: tag.color || '#9CA3AF' }
+                            : undefined
+                        }
+                      >
+                        {selected && (
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                        <span
+                          className={cn(
+                            'inline-block w-2 h-2 rounded-full',
+                            selected && 'opacity-0',
+                          )}
+                          style={
+                            selected
+                              ? undefined
+                              : { backgroundColor: tag.color || '#9CA3AF' }
+                          }
+                        />
+                        {tag.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            </>
+          )}
+
+          {siblingActivities.length > 0 && (
+            <>
+              <div className="h-px bg-accent-100" />
+              <section className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-xs font-semibold tracking-wider uppercase text-accent-500">
+                      Depende de
+                    </h3>
+                    <p className="text-xs text-accent-400 mt-0.5">
+                      Actividades del proyecto que deben completarse primero
+                    </p>
+                  </div>
+                  <span className="text-xs text-accent-500 shrink-0">
+                    <span className="font-semibold text-primary-700">
+                      {editForm.dependsOnActivityIds.length}
+                    </span>{' '}
+                    de {siblingActivities.length}
+                  </span>
+                </div>
+                <div className="max-h-64 overflow-y-auto border border-accent-200 rounded-xl divide-y divide-accent-100">
+                  {siblingActivities.map((sib) => {
+                    const checked = editForm.dependsOnActivityIds.includes(sib.id);
+                    return (
+                      <button
+                        key={sib.id}
+                        type="button"
+                        onClick={() => toggleEditDependency(sib.id)}
+                        className={cn(
+                          'w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors',
+                          checked
+                            ? 'bg-primary-50/60 hover:bg-primary-50'
+                            : 'hover:bg-accent-50',
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            'w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors',
+                            checked
+                              ? 'bg-primary-600 border-primary-600'
+                              : 'bg-white border-accent-300',
+                          )}
+                        >
+                          {checked && (
+                            <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </span>
+                        <svg className="w-4 h-4 text-accent-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                        </svg>
+                        <span className="text-sm text-accent-900 truncate flex-1 min-w-0">
+                          {sib.title}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            </>
+          )}
+        </form>
+      </Modal>
+
       <ConfirmModal
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
@@ -1168,6 +2242,29 @@ export default function ActivityDetailPage() {
         confirmText="Eliminar"
         variant="danger"
         loading={deleting}
+      />
+
+      <ConfirmModal
+        isOpen={!!cancelRequestId}
+        onClose={() => setCancelRequestId(null)}
+        onConfirm={handleCancelRequest}
+        title="Cancelar solicitud"
+        message="La solicitud quedará en estado CANCELADO y no se podrá reabrir. ¿Confirmas?"
+        confirmText="Cancelar solicitud"
+        cancelText="Volver"
+        variant="danger"
+        loading={cancellingRequest}
+      />
+
+      <ConfirmModal
+        isOpen={!!deleteCommentId}
+        onClose={() => setDeleteCommentId(null)}
+        onConfirm={handleDeleteComment}
+        title="Eliminar comentario"
+        message="Esta acción no se puede deshacer. ¿Eliminar el comentario?"
+        confirmText="Eliminar"
+        variant="danger"
+        loading={deletingComment}
       />
     </div>
   );

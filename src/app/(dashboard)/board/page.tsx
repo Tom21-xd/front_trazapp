@@ -31,6 +31,9 @@ export default function KanbanBoardPage() {
   const canAssign = can('activity:assign');
   const [loading, setLoading] = useState(true);
   const [filterProjectId, setFilterProjectId] = useState('');
+  const [filterAssigneeId, setFilterAssigneeId] = useState('');
+  const [filterPriority, setFilterPriority] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dropTargetStage, setDropTargetStage] = useState<string | null>(null);
 
@@ -63,15 +66,13 @@ export default function KanbanBoardPage() {
     } catch {
       toast.error('Error al cargar datos');
     }
-    if (canAssign) {
-      try {
-        const usersData = await usersService.getAll();
-        setUsers(usersData.filter((u) => u.isActive));
-      } catch {
-        // sin permiso de ver usuarios: simplemente no se ofrece el picker
-      }
+    try {
+      const usersData = await usersService.getAll();
+      setUsers(usersData.filter((u) => u.isActive));
+    } catch {
+      // sin permiso de ver usuarios: el picker / filtro queda oculto
     }
-  }, [toast, canAssign]);
+  }, [toast]);
 
   const loadActivities = useCallback(async () => {
     try {
@@ -210,8 +211,39 @@ export default function KanbanBoardPage() {
     }
   };
 
+  const normalize = (s: string) =>
+    s
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '');
+  const search = normalize(searchQuery.trim());
+
+  const filteredActivities = activities.filter((a) => {
+    if (filterAssigneeId) {
+      const matches =
+        a.assignments?.some((as) => as.userId === filterAssigneeId) ||
+        a.assignedUsers?.some((u) => u.id === filterAssigneeId);
+      if (!matches) return false;
+    }
+    if (filterPriority && a.priority !== filterPriority) return false;
+    if (
+      search &&
+      !normalize(a.title).includes(search) &&
+      !normalize(a.description || '').includes(search)
+    ) {
+      return false;
+    }
+    return true;
+  });
+
   const getActivitiesByStage = (stageId: string) =>
-    activities.filter((a) => a.currentStageId === stageId);
+    filteredActivities.filter((a) => a.currentStageId === stageId);
+
+  const activeFiltersCount = [
+    filterAssigneeId,
+    filterPriority,
+    search,
+  ].filter(Boolean).length;
 
   if (loading && activities.length === 0) {
     return (
@@ -233,7 +265,29 @@ export default function KanbanBoardPage() {
               : 'Arrastra una actividad asignada para solicitar su cambio de etapa'}
           </p>
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <div className="relative w-full sm:w-64">
+            <svg
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-accent-400 pointer-events-none"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"
+              />
+            </svg>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar actividad..."
+              className="w-full pl-9 pr-3 py-2 rounded-lg border border-accent-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
+          </div>
           <Select
             id="filterProject"
             value={filterProjectId}
@@ -242,8 +296,46 @@ export default function KanbanBoardPage() {
               { value: '', label: 'Todos los proyectos' },
               ...projects.map((p) => ({ value: p.id, label: p.name })),
             ]}
-            className="w-full sm:w-48"
+            className="w-full sm:w-44"
           />
+          {users.length > 0 && (
+            <Select
+              id="filterAssignee"
+              value={filterAssigneeId}
+              onChange={(e) => setFilterAssigneeId(e.target.value)}
+              options={[
+                { value: '', label: 'Cualquier asignado' },
+                ...users.map((u) => ({ value: u.id, label: u.name })),
+              ]}
+              className="w-full sm:w-44"
+            />
+          )}
+          <Select
+            id="filterPriority"
+            value={filterPriority}
+            onChange={(e) => setFilterPriority(e.target.value)}
+            options={[
+              { value: '', label: 'Cualquier prioridad' },
+              { value: 'URGENTE', label: 'Urgente' },
+              { value: 'ALTA', label: 'Alta' },
+              { value: 'MEDIA', label: 'Media' },
+              { value: 'BAJA', label: 'Baja' },
+            ]}
+            className="w-full sm:w-40"
+          />
+          {activeFiltersCount > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setFilterAssigneeId('');
+                setFilterPriority('');
+                setSearchQuery('');
+              }}
+              className="text-xs font-medium text-accent-500 hover:text-accent-700"
+            >
+              Limpiar ({activeFiltersCount})
+            </button>
+          )}
         </div>
       </div>
 
