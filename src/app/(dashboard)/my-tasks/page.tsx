@@ -30,6 +30,7 @@ export default function MyTasksPage() {
   const [stageFilter, setStageFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [hideCompleted, setHideCompleted] = useState(true);
+  const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -128,8 +129,8 @@ export default function MyTasksPage() {
       {/* Filtros */}
       <Card>
         <CardContent className="p-4 space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-60">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
               <svg
                 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-accent-400 pointer-events-none"
                 fill="none"
@@ -151,17 +152,38 @@ export default function MyTasksPage() {
                 className="w-full pl-9 pr-3 py-2 rounded-lg border border-accent-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
             </div>
+            <button
+              type="button"
+              onClick={() => setFiltersOpenMobile((v) => !v)}
+              aria-expanded={filtersOpenMobile ? 'true' : 'false'}
+              className="sm:hidden inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-accent-300 bg-white text-sm text-accent-700 hover:bg-accent-50 transition-colors shrink-0"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              Filtros
+              {activeFilters - (q ? 1 : 0) > 0 && (
+                <span className="inline-flex items-center justify-center text-[10px] font-bold text-white bg-primary-600 rounded-full min-w-5 h-5 px-1">
+                  {activeFilters - (q ? 1 : 0)}
+                </span>
+              )}
+            </button>
             {activeFilters > 0 && (
               <button
                 type="button"
                 onClick={clearFilters}
-                className="text-xs font-medium text-accent-500 hover:text-accent-700"
+                className="hidden sm:inline-block text-xs font-medium text-accent-500 hover:text-accent-700"
               >
                 Limpiar ({activeFilters})
               </button>
             )}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div
+            className={cn(
+              'grid grid-cols-1 sm:grid-cols-3 gap-3',
+              !filtersOpenMobile && 'hidden sm:grid',
+            )}
+          >
             <Select
               id="filterStage"
               placeholder="Todas las etapas"

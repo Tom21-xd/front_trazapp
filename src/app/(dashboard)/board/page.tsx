@@ -36,6 +36,7 @@ export default function KanbanBoardPage() {
   const [filterPriority, setFilterPriority] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filtersHydrated, setFiltersHydrated] = useState(false);
+  const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [dropTargetStage, setDropTargetStage] = useState<string | null>(null);
 
@@ -315,79 +316,107 @@ export default function KanbanBoardPage() {
         </div>
         <div
           data-tour="board-filters"
-          className="flex flex-wrap items-center gap-2 w-full sm:w-auto"
+          className="flex flex-col gap-2 w-full sm:w-auto"
         >
-          <div data-tour="board-search" className="relative w-full sm:w-64">
-            <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-accent-400 pointer-events-none"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"
+          {/* Fila 1: buscador siempre + botón "Filtros" sólo en mobile */}
+          <div className="flex items-center gap-2">
+            <div data-tour="board-search" className="relative flex-1 sm:w-64 sm:flex-initial">
+              <svg
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-accent-400 pointer-events-none"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"
+                />
+              </svg>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar actividad..."
+                className="w-full pl-9 pr-3 py-2 rounded-lg border border-accent-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
-            </svg>
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar actividad..."
-              className="w-full pl-9 pr-3 py-2 rounded-lg border border-accent-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
+            </div>
+            <button
+              type="button"
+              onClick={() => setFiltersOpenMobile((v) => !v)}
+              aria-expanded={filtersOpenMobile ? 'true' : 'false'}
+              className="sm:hidden inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-accent-300 bg-white text-sm text-accent-700 hover:bg-accent-50 transition-colors shrink-0"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              Filtros
+              {activeFiltersCount - (searchQuery ? 1 : 0) > 0 && (
+                <span className="inline-flex items-center justify-center text-[10px] font-bold text-white bg-primary-600 rounded-full min-w-5 h-5 px-1">
+                  {activeFiltersCount - (searchQuery ? 1 : 0)}
+                </span>
+              )}
+            </button>
           </div>
-          <Select
-            id="filterProject"
-            value={filterProjectId}
-            onChange={(e) => setFilterProjectId(e.target.value)}
-            options={[
-              { value: '', label: 'Todos los proyectos' },
-              ...projects.map((p) => ({ value: p.id, label: p.name })),
-            ]}
-            className="w-full sm:w-44"
-          />
-          {users.length > 0 && (
+
+          {/* Fila 2: selects — siempre visibles en sm+, colapsables en mobile */}
+          <div
+            className={cn(
+              'flex flex-wrap items-center gap-2',
+              !filtersOpenMobile && 'hidden sm:flex',
+            )}
+          >
             <Select
-              id="filterAssignee"
-              value={filterAssigneeId}
-              onChange={(e) => setFilterAssigneeId(e.target.value)}
+              id="filterProject"
+              value={filterProjectId}
+              onChange={(e) => setFilterProjectId(e.target.value)}
               options={[
-                { value: '', label: 'Cualquier asignado' },
-                ...users.map((u) => ({ value: u.id, label: u.name })),
+                { value: '', label: 'Todos los proyectos' },
+                ...projects.map((p) => ({ value: p.id, label: p.name })),
               ]}
               className="w-full sm:w-44"
             />
-          )}
-          <Select
-            id="filterPriority"
-            value={filterPriority}
-            onChange={(e) => setFilterPriority(e.target.value)}
-            options={[
-              { value: '', label: 'Cualquier prioridad' },
-              { value: 'URGENTE', label: 'Urgente' },
-              { value: 'ALTA', label: 'Alta' },
-              { value: 'MEDIA', label: 'Media' },
-              { value: 'BAJA', label: 'Baja' },
-            ]}
-            className="w-full sm:w-40"
-          />
-          {activeFiltersCount > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                setFilterAssigneeId('');
-                setFilterPriority('');
-                setSearchQuery('');
-                setFilterProjectId('');
-              }}
-              className="text-xs font-medium text-accent-500 hover:text-accent-700"
-            >
-              Limpiar ({activeFiltersCount})
-            </button>
-          )}
+            {users.length > 0 && (
+              <Select
+                id="filterAssignee"
+                value={filterAssigneeId}
+                onChange={(e) => setFilterAssigneeId(e.target.value)}
+                options={[
+                  { value: '', label: 'Cualquier asignado' },
+                  ...users.map((u) => ({ value: u.id, label: u.name })),
+                ]}
+                className="w-full sm:w-44"
+              />
+            )}
+            <Select
+              id="filterPriority"
+              value={filterPriority}
+              onChange={(e) => setFilterPriority(e.target.value)}
+              options={[
+                { value: '', label: 'Cualquier prioridad' },
+                { value: 'URGENTE', label: 'Urgente' },
+                { value: 'ALTA', label: 'Alta' },
+                { value: 'MEDIA', label: 'Media' },
+                { value: 'BAJA', label: 'Baja' },
+              ]}
+              className="w-full sm:w-40"
+            />
+            {activeFiltersCount > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterAssigneeId('');
+                  setFilterPriority('');
+                  setSearchQuery('');
+                  setFilterProjectId('');
+                }}
+                className="text-xs font-medium text-accent-500 hover:text-accent-700"
+              >
+                Limpiar ({activeFiltersCount})
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

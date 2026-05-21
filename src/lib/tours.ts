@@ -102,12 +102,26 @@ const TOUR_STEPS: Record<TourName, DriveStep[]> = {
       },
     },
     {
+      // Versión desktop: el sidebar permanece visible a la izquierda
       element: '[data-tour="sidebar-nav"]',
       popover: {
         title: 'Navegación principal',
         description:
-          'Aquí están las secciones: Proyectos, Tablero Kanban, Actividades, Mis tareas, Solicitudes. Lo que ves depende de tu rol.',
+          'Aquí están las secciones: Proyectos, Tablero Kanban, Actividades, Mis tareas, Solicitudes y más. Lo que ves depende de tu rol.',
         side: 'right',
+        align: 'start',
+      },
+    },
+    {
+      // Versión móvil: el sidebar está oculto detrás del botón hamburguesa.
+      // pickAvailableSteps filtra automáticamente el paso anterior cuando el
+      // sidebar no es visible y queda éste en su lugar.
+      element: '[data-tour="open-menu"]',
+      popover: {
+        title: 'Abrir el menú',
+        description:
+          'Toca aquí para abrir el menú lateral. Adentro están las secciones: Proyectos, Tablero, Actividades, Mis tareas y Solicitudes.',
+        side: 'bottom',
         align: 'start',
       },
     },
@@ -250,12 +264,32 @@ const TOUR_STEPS: Record<TourName, DriveStep[]> = {
   ],
 };
 
+/**
+ * Verifica si un elemento es realmente visible (no basta con que exista
+ * en el DOM: el sidebar mobile vive renderizado pero oculto detrás del
+ * drawer, con `offsetParent === null` o `display: none`).
+ */
+function isElementVisible(el: HTMLElement): boolean {
+  if (!el.isConnected) return false;
+  const rect = el.getBoundingClientRect();
+  if (rect.width === 0 && rect.height === 0) return false;
+  const style = window.getComputedStyle(el);
+  if (style.display === 'none' || style.visibility === 'hidden') return false;
+  if (parseFloat(style.opacity || '1') === 0) return false;
+  // Verifica que ningún ancestro lo oculte (offsetParent === null en CSS
+  // implica display:none en la cadena, excepto para position:fixed).
+  if (style.position !== 'fixed' && el.offsetParent === null) return false;
+  return true;
+}
+
 function pickAvailableSteps(steps: DriveStep[]): DriveStep[] {
   if (typeof document === 'undefined') return steps;
   return steps.filter((s) => {
     const sel = typeof s.element === 'string' ? s.element : null;
     if (!sel) return true;
-    return !!document.querySelector(sel);
+    const el = document.querySelector(sel) as HTMLElement | null;
+    if (!el) return false;
+    return isElementVisible(el);
   });
 }
 

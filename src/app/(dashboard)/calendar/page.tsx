@@ -8,6 +8,7 @@ import { cn, priorityColors, formatDate, relativeTime } from '@/lib/utils';
 import type { Activity, Priority } from '@/types';
 
 const WEEK_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const WEEK_LABELS_SHORT = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const MONTH_LABELS = [
   'Enero',
   'Febrero',
@@ -153,17 +154,26 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl lg:text-2xl font-bold text-accent-900">
-            Calendario
-          </h1>
-          <p className="text-sm text-accent-500">
-            Actividades con fecha límite — {upcomingThisMonth.length} en este mes
-          </p>
+    <div className="space-y-4 lg:space-y-6">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-end justify-between gap-2">
+          <div className="min-w-0">
+            <h1 className="text-xl lg:text-2xl font-bold text-accent-900">
+              Calendario
+            </h1>
+            <p className="text-xs lg:text-sm text-accent-500">
+              {upcomingThisMonth.length} con vencimiento en este mes
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={goToday}
+            className="px-3 py-1.5 rounded-lg border border-accent-200 hover:bg-accent-50 text-sm text-accent-700 font-medium shrink-0"
+          >
+            Hoy
+          </button>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2">
           <button
             type="button"
             onClick={goPrev}
@@ -174,13 +184,9 @@ export default function CalendarPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <button
-            type="button"
-            onClick={goToday}
-            className="px-3 py-1.5 rounded-lg border border-accent-200 hover:bg-accent-50 text-sm text-accent-700 font-medium"
-          >
-            Hoy
-          </button>
+          <span className="text-base lg:text-lg font-semibold text-accent-900 text-center flex-1">
+            {MONTH_LABELS[cursorMonth]} {cursorYear}
+          </span>
           <button
             type="button"
             onClick={goNext}
@@ -191,23 +197,21 @@ export default function CalendarPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
-          <span className="ml-2 text-base lg:text-lg font-semibold text-accent-900 min-w-40">
-            {MONTH_LABELS[cursorMonth]} {cursorYear}
-          </span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
           <CardContent className="p-0">
-            {/* Cabecera días de la semana */}
+            {/* Cabecera días de la semana — corta en móvil, completa en sm+ */}
             <div className="grid grid-cols-7 border-b border-accent-200 bg-accent-50">
-              {WEEK_LABELS.map((d) => (
+              {WEEK_LABELS.map((d, i) => (
                 <div
-                  key={d}
-                  className="px-2 py-2 text-center text-[11px] font-semibold tracking-wider uppercase text-accent-500"
+                  key={d + i}
+                  className="px-1 sm:px-2 py-2 text-center text-[10px] sm:text-[11px] font-semibold tracking-wider uppercase text-accent-500"
                 >
-                  {d}
+                  <span className="sm:hidden">{WEEK_LABELS_SHORT[i]}</span>
+                  <span className="hidden sm:inline">{d}</span>
                 </div>
               ))}
             </div>
@@ -230,17 +234,17 @@ export default function CalendarPage() {
                     type="button"
                     onClick={() => setSelectedDay(day)}
                     className={cn(
-                      'min-h-[88px] lg:min-h-[110px] text-left p-1.5 border-b border-r border-accent-100 transition-colors flex flex-col gap-1',
+                      'min-h-12 sm:min-h-[88px] lg:min-h-[110px] text-left p-1 sm:p-1.5 border-b border-r border-accent-100 transition-colors flex flex-col gap-1',
                       !inMonth && 'bg-accent-50/40',
                       isSelected
                         ? 'bg-primary-50 ring-2 ring-primary-500 ring-inset'
                         : 'hover:bg-accent-50',
                     )}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-1">
                       <span
                         className={cn(
-                          'inline-flex items-center justify-center text-xs font-semibold w-6 h-6 rounded-full',
+                          'inline-flex items-center justify-center text-[11px] sm:text-xs font-semibold w-5 h-5 sm:w-6 sm:h-6 rounded-full',
                           isToday
                             ? 'bg-primary-600 text-white'
                             : inMonth
@@ -253,7 +257,7 @@ export default function CalendarPage() {
                       {items.length > 0 && (
                         <span
                           className={cn(
-                            'text-[10px] font-medium px-1.5 rounded-full',
+                            'text-[9px] sm:text-[10px] font-medium px-1 sm:px-1.5 rounded-full leading-tight',
                             overdue
                               ? 'bg-red-100 text-red-700'
                               : 'bg-primary-100 text-primary-700',
@@ -263,7 +267,22 @@ export default function CalendarPage() {
                         </span>
                       )}
                     </div>
-                    <div className="space-y-0.5 overflow-hidden">
+                    {/* En móvil sólo puntitos de prioridad (más legible que truncar nombres) */}
+                    {items.length > 0 && (
+                      <div className="flex sm:hidden items-center gap-0.5 flex-wrap">
+                        {items.slice(0, 4).map((a) => (
+                          <span
+                            key={a.id}
+                            className={cn(
+                              'w-1.5 h-1.5 rounded-full',
+                              PRIORITY_DOT[a.priority],
+                            )}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    {/* En sm+ títulos truncados */}
+                    <div className="hidden sm:block space-y-0.5 overflow-hidden">
                       {items.slice(0, 3).map((a) => (
                         <div
                           key={a.id}

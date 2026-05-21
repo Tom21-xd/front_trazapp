@@ -23,6 +23,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           onClick={onMenuClick}
           title="Abrir menú"
           aria-label="Abrir menú de navegación"
+          data-tour="open-menu"
           className="lg:hidden p-2 -ml-2 text-accent-600 hover:text-accent-900 hover:bg-accent-100 rounded-lg transition-colors"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
