@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useAuthContext } from '@/store/AuthContext';
 import { Avatar } from '@/components/ui';
 import { NotificationBell } from './NotificationBell';
+import { TourLauncher } from './TourLauncher';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -35,6 +36,7 @@ export function Header({ onMenuClick }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-1 sm:gap-2">
+        <TourLauncher />
         <NotificationBell />
         <div className="relative">
         <button

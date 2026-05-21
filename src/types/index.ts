@@ -216,6 +216,7 @@ export interface Tag {
 export type ActivityEventType =
   | 'CREATED'
   | 'UPDATED'
+  | 'DELETED'
   | 'STAGE_CHANGED'
   | 'STAGE_CHANGE_REQUESTED'
   | 'STAGE_CHANGE_APPROVED'

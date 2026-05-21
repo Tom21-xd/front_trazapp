@@ -83,9 +83,18 @@ const navigation = [
   { name: 'Proyectos', href: '/projects', icon: FolderIcon },
   { name: 'Tablero', href: '/board', icon: KanbanIcon },
   { name: 'Actividades', href: '/activities', icon: TaskIcon },
+  { name: 'Calendario', href: '/calendar', icon: CalendarIcon },
   { name: 'Mis Tareas', href: '/my-tasks', icon: UserTaskIcon },
   { name: 'Solicitudes', href: '/stage-changes', icon: RequestIcon },
 ];
+
+function CalendarIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+  );
+}
 
 function ProjectTypeIcon({ className }: { className?: string }) {
   return (
@@ -155,7 +164,10 @@ function NavContent({ pathname, canAny, onClose }: NavContentProps) {
         </Link>
       </div>
 
-      <nav className="flex-1 px-3 lg:px-4 py-4 lg:py-6 space-y-1 overflow-y-auto">
+      <nav
+        data-tour="sidebar-nav"
+        className="flex-1 px-3 lg:px-4 py-4 lg:py-6 space-y-1 overflow-y-auto"
+      >
         {navigation.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (

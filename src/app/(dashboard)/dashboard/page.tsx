@@ -151,7 +151,10 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
+      <div
+        data-tour="dashboard-greeting"
+        className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2"
+      >
         <div>
           <h1 className="text-xl lg:text-2xl font-bold text-accent-900">
             Bienvenido{user?.name ? `, ${user.name.split(' ')[0]}` : ''}
@@ -182,7 +185,10 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
+      <div
+        data-tour="dashboard-kpis"
+        className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4"
+      >
         <KpiCard
           label="Mis pendientes"
           value={myActivities.filter((a) => isOpen(a, lastStageId)).length}
@@ -262,7 +268,7 @@ export default function DashboardPage() {
 
       {/* Distribución por etapa */}
       {orderedStages.length > 0 && (
-        <Card>
+        <Card data-tour="dashboard-stages">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>

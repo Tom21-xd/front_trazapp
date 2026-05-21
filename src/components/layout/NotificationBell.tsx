@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { notificationsService, pushService, type PushStatus } from '@/services';
+import api from '@/lib/api';
 import { cn } from '@/lib/utils';
 import type { AppNotification } from '@/types';
 
@@ -15,6 +16,10 @@ export function NotificationBell() {
   const [pushStatus, setPushStatus] = useState<PushStatus>('unsupported');
   const [pushBusy, setPushBusy] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const openRef = useRef(open);
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
 
   const refreshPushStatus = useCallback(() => {
     pushService.getStatus().then(setPushStatus).catch(() => undefined);
@@ -49,11 +54,62 @@ export function NotificationBell() {
     }
   }, []);
 
+  // Carga inicial + fallback periódico (cada 5 min, por si SSE cae)
   useEffect(() => {
     loadCount();
-    const t = setInterval(loadCount, 60000);
+    const t = setInterval(loadCount, 5 * 60 * 1000);
     return () => clearInterval(t);
   }, [loadCount]);
+
+  // Conexión SSE — empuja unreadCount y notifications en tiempo real
+  useEffect(() => {
+    const token = api.getAccessToken();
+    if (!token) return;
+    const url = `${api.getBaseUrl()}/notifications/stream?token=${encodeURIComponent(token)}`;
+    const es = new EventSource(url);
+
+    es.addEventListener('unreadCount', (e) => {
+      try {
+        const payload = JSON.parse((e as MessageEvent).data) as {
+          data: { count: number };
+        };
+        setUnread(payload.data.count);
+      } catch {
+        // payload mal formado: ignoramos
+      }
+    });
+
+    es.addEventListener('notification', (e) => {
+      try {
+        const payload = JSON.parse((e as MessageEvent).data) as {
+          data: { title: string };
+        };
+        // Si el dropdown está abierto, recargamos la lista para verlo arriba
+        // sin esperar al próximo loadPanel.
+        if (openRef.current) {
+          notificationsService
+            .getPage({ limit: 10 })
+            .then((res) => setItems(res.data))
+            .catch(() => undefined);
+        }
+        // El badge se actualiza con el evento unreadCount que el backend
+        // envía justo después; no hacemos optimistic +1 para evitar drift.
+        void payload;
+      } catch {
+        // payload mal formado: ignoramos
+      }
+    });
+
+    es.addEventListener('error', () => {
+      // EventSource se reconecta solo. Si el server devuelve 401 (token
+      // expirado), forzamos cierre — el próximo refresh del token reabrirá.
+      if (es.readyState === EventSource.CLOSED) {
+        es.close();
+      }
+    });
+
+    return () => es.close();
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -123,6 +179,7 @@ export function NotificationBell() {
         type="button"
         onClick={openPanel}
         aria-label={`Notificaciones${unread > 0 ? `, ${unread} sin leer` : ''}`}
+        data-tour="bell"
         className="relative p-2 rounded-lg text-accent-600 hover:text-accent-900 hover:bg-accent-100 transition-colors"
       >
         <svg className="w-5 h-5 lg:w-6 lg:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -151,7 +208,10 @@ export function NotificationBell() {
           </div>
 
           {pushStatus !== 'unsupported' && (
-            <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-accent-100 bg-accent-50/40">
+            <div
+              data-tour="push-toggle"
+              className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-accent-100 bg-accent-50/40"
+            >
               <div className="min-w-0">
                 <p className="text-xs font-medium text-accent-900">
                   Notificaciones del dispositivo

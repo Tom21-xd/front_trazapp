@@ -313,8 +313,11 @@ export default function KanbanBoardPage() {
               : 'Arrastra una actividad asignada para solicitar su cambio de etapa'}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          <div className="relative w-full sm:w-64">
+        <div
+          data-tour="board-filters"
+          className="flex flex-wrap items-center gap-2 w-full sm:w-auto"
+        >
+          <div data-tour="board-search" className="relative w-full sm:w-64">
             <svg
               className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-accent-400 pointer-events-none"
               fill="none"
@@ -389,15 +392,16 @@ export default function KanbanBoardPage() {
       </div>
 
       {/* Kanban Board */}
-      <div className="flex-1 overflow-x-auto pb-4">
+      <div data-tour="board-columns" className="flex-1 overflow-x-auto pb-4">
         <div className="flex gap-3 lg:gap-4 min-w-max h-full">
-          {stages.map((stage) => {
+          {stages.map((stage, stageIdx) => {
             const stageActivities = getActivitiesByStage(stage.id);
             const isDropTarget = dropTargetStage === stage.id;
 
             return (
               <div
                 key={stage.id}
+                data-tour={stageIdx === 0 ? 'board-stage-first' : undefined}
                 className="w-72 lg:w-80 flex flex-col shrink-0"
                 onDragOver={(e) => handleDragOver(e, stage.id)}
                 onDragLeave={handleDragLeave}
@@ -420,7 +424,7 @@ export default function KanbanBoardPage() {
                     isDropTarget ? 'bg-primary-100 ring-2 ring-primary-400' : ''
                   }`}
                 >
-                  {stageActivities.map((activity) => {
+                  {stageActivities.map((activity, idx) => {
                     const users =
                       activity.assignedUsers ||
                       activity.assignments?.map((a) => a.user).filter(Boolean) ||
@@ -429,6 +433,9 @@ export default function KanbanBoardPage() {
                       <Link
                         key={activity.id}
                         href={`/activities/${activity.id}`}
+                        data-tour={
+                          stageIdx === 0 && idx === 0 ? 'board-card' : undefined
+                        }
                         draggable
                         onDragStart={() => handleDragStart(activity.id, stage.id)}
                         onDragEnd={handleDragEnd}
@@ -516,6 +523,7 @@ export default function KanbanBoardPage() {
                     <button
                       type="button"
                       onClick={() => openCreateModal(stage.id)}
+                      data-tour={stageIdx === 0 ? 'board-add' : undefined}
                       className="w-full p-2 text-sm text-accent-500 hover:text-accent-700 hover:bg-white/50 rounded-lg transition-colors flex items-center justify-center gap-2"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

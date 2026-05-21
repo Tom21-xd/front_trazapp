@@ -33,6 +33,16 @@ class ApiClient {
     return !!this.getToken();
   }
 
+  /** Token actual (público, para usar en EventSource y similares). */
+  getAccessToken(): string | null {
+    return this.getToken();
+  }
+
+  /** URL base del API; útil para construir endpoints SSE/streaming. */
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
   private async refreshAccessToken(): Promise<boolean> {
     const refreshToken = this.getRefreshToken();
     if (!refreshToken) return false;

@@ -64,9 +64,19 @@ export const activitiesService = {
   changeStage: (id: string, stageId: string) =>
     api.patch<Activity>(`/activities/${id}`, { currentStageId: stageId }),
 
-  /** Línea de tiempo / trazabilidad de la actividad. */
+  /** Línea de tiempo COMPLETA (sin paginar) — útil para export. */
   getEvents: async (id: string): Promise<ActivityEvent[]> =>
     toArray<ActivityEvent>(
       await api.get(`/activities/${id}/events`, { all: 'true' }),
+    ),
+
+  /** Línea de tiempo paginada (default 25 por página, orden desc por fecha). */
+  getEventsPage: async (
+    id: string,
+    page = 1,
+    limit = 25,
+  ): Promise<Paginated<ActivityEvent>> =>
+    toPage<ActivityEvent>(
+      await api.get(`/activities/${id}/events`, { page, limit }),
     ),
 };

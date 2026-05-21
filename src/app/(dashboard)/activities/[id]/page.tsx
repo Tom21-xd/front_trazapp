@@ -39,6 +39,7 @@ import type {
   Activity,
   ActivityEvent,
   ActivityEventType,
+  PageMeta,
   Stage,
   Comment,
   User,
@@ -114,6 +115,151 @@ function downloadCsv(filename: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
+const EVENT_TYPE_LABELS: Record<ActivityEventType, string> = {
+  CREATED: 'Creó la actividad',
+  UPDATED: 'Actualizó la actividad',
+  DELETED: 'Archivó la actividad',
+  STAGE_CHANGED: 'Movió de etapa',
+  STAGE_CHANGE_REQUESTED: 'Solicitó cambio',
+  STAGE_CHANGE_APPROVED: 'Aprobó el cambio',
+  STAGE_CHANGE_REJECTED: 'Rechazó el cambio',
+  STAGE_CHANGE_CANCELLED: 'Canceló la solicitud',
+  ASSIGNED: 'Asignó',
+  UNASSIGNED: 'Retiró',
+  COMMENT_ADDED: 'Comentó',
+  COMMENT_EDITED: 'Editó comentario',
+  COMMENT_DELETED: 'Eliminó comentario',
+  FILE_UPLOADED: 'Subió archivo',
+  FILE_DELETED: 'Eliminó archivo',
+};
+
+async function exportTimelinePdf(activity: ActivityFull, events: ActivityEvent[]) {
+  // Imports dinámicos para evitar inflar el bundle inicial — jsPDF sólo carga
+  // cuando el usuario realmente exporta.
+  const { default: jsPDF } = await import('jspdf');
+  const { default: autoTable } = await import('jspdf-autotable');
+
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginX = 40;
+
+  // Banda verde superior con marca institucional
+  doc.setFillColor(0, 146, 63);
+  doc.rect(0, 0, pageWidth, 56, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text('TrazApp · Alcaldía de Florencia', marginX, 26);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text('Reporte de trazabilidad de actividad', marginX, 44);
+
+  // Bloque de metadatos
+  doc.setTextColor(23, 23, 23);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  let y = 88;
+  const title = doc.splitTextToSize(activity.title, pageWidth - marginX * 2);
+  doc.text(title, marginX, y);
+  y += 16 * title.length;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(82, 82, 82);
+  const metaLines = [
+    `Proyecto: ${activity.project?.name ?? '—'}`,
+    `Etapa actual: ${activity.currentStage?.name ?? '—'}`,
+    `Prioridad: ${activity.priority}`,
+    activity.dueDate
+      ? `Vence: ${formatDateTime(activity.dueDate)}`
+      : 'Vence: —',
+    `Generado: ${formatDateTime(new Date())}`,
+    `Eventos: ${events.length}`,
+  ];
+  metaLines.forEach((line) => {
+    doc.text(line, marginX, y);
+    y += 14;
+  });
+  y += 8;
+
+  // Tabla de eventos (cronológica)
+  const ordered = [...events].sort(
+    (a, b) =>
+      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+  );
+
+  const rows = ordered.map((ev) => {
+    let detail = ev.note ?? '';
+    if (ev.type === 'COMMENT_ADDED' || ev.type === 'COMMENT_EDITED') {
+      detail = ev.comment?.content ?? detail;
+    } else if (ev.type === 'FILE_UPLOADED') {
+      detail = ev.file?.originalName ?? detail;
+    }
+    const target = ev.targetUser?.name ?? '';
+    const stageMove =
+      ev.fromStage || ev.toStage
+        ? `${ev.fromStage?.name ?? '—'} → ${ev.toStage?.name ?? '—'}`
+        : '';
+    return [
+      formatDateTime(ev.createdAt),
+      EVENT_TYPE_LABELS[ev.type] ?? ev.type,
+      ev.actor?.name ?? '—',
+      [target, stageMove, detail].filter(Boolean).join(' · '),
+    ];
+  });
+
+  autoTable(doc, {
+    startY: y,
+    margin: { left: marginX, right: marginX },
+    head: [['Fecha y hora', 'Tipo', 'Actor', 'Detalle']],
+    body: rows.length > 0 ? rows : [['—', '—', '—', 'Sin eventos registrados']],
+    styles: {
+      font: 'helvetica',
+      fontSize: 9,
+      cellPadding: 6,
+      overflow: 'linebreak',
+      textColor: [38, 38, 38],
+    },
+    headStyles: {
+      fillColor: [0, 116, 47],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+    },
+    alternateRowStyles: {
+      fillColor: [250, 250, 250],
+    },
+    columnStyles: {
+      0: { cellWidth: 110 },
+      1: { cellWidth: 105 },
+      2: { cellWidth: 90 },
+      3: { cellWidth: 'auto' },
+    },
+    didDrawPage: (data) => {
+      const pageCount = doc.getNumberOfPages();
+      doc.setFontSize(8);
+      doc.setTextColor(115, 115, 115);
+      doc.text(
+        `Página ${data.pageNumber} de ${pageCount}`,
+        pageWidth - marginX,
+        doc.internal.pageSize.getHeight() - 16,
+        { align: 'right' },
+      );
+      doc.text(
+        'Documento generado automáticamente por TrazApp · Confidencial',
+        marginX,
+        doc.internal.pageSize.getHeight() - 16,
+      );
+    },
+  });
+
+  const safeTitle =
+    activity.title
+      .replace(/[^a-z0-9-_]+/gi, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || 'actividad';
+  doc.save(`trazabilidad-${safeTitle}.pdf`);
+}
+
 // === Timeline ===
 
 const EVENT_META: Record<
@@ -139,6 +285,17 @@ const EVENT_META: Record<
     icon: (
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+      </svg>
+    ),
+  },
+  DELETED: {
+    color: 'text-red-700',
+    bg: 'bg-red-100',
+    ring: 'ring-red-200',
+    verb: 'archivó la actividad',
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a2 2 0 012-2h2a2 2 0 012 2v3" />
       </svg>
     ),
   },
@@ -429,7 +586,21 @@ const FILTER_LABELS: Record<TimelineFilter, string> = {
   changes: 'Cambios y archivos',
 };
 
-function Timeline({ events }: { events: ActivityEvent[] }) {
+interface TimelineProps {
+  events: ActivityEvent[];
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
+  total?: number;
+}
+
+function Timeline({
+  events,
+  hasMore,
+  loadingMore,
+  onLoadMore,
+  total,
+}: TimelineProps) {
   const [filter, setFilter] = useState<TimelineFilter>('all');
 
   const filtered = events.filter((e) => FILTER_MATCH[filter](e.type));
@@ -482,6 +653,35 @@ function Timeline({ events }: { events: ActivityEvent[] }) {
           ))}
         </ol>
       )}
+      {hasMore && onLoadMore && (
+        <div className="pt-3 pl-10 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onLoadMore}
+            disabled={loadingMore}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-700 bg-primary-50 hover:bg-primary-100 border border-primary-200 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {loadingMore ? (
+              <>
+                <span className="w-3 h-3 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                Cargando…
+              </>
+            ) : (
+              <>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+                Cargar más eventos
+              </>
+            )}
+          </button>
+          {typeof total === 'number' && (
+            <span className="text-xs text-accent-500">
+              Mostrando {events.length} de {total}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -531,6 +731,8 @@ export default function ActivityDetailPage() {
   const [stages, setStages] = useState<Stage[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [events, setEvents] = useState<ActivityEvent[]>([]);
+  const [eventsMeta, setEventsMeta] = useState<PageMeta | null>(null);
+  const [loadingMoreEvents, setLoadingMoreEvents] = useState(false);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showStageChangeModal, setShowStageChangeModal] = useState(false);
@@ -584,20 +786,56 @@ export default function ActivityDetailPage() {
 
   const loadData = async () => {
     try {
-      const [activityData, stagesData, commentsData, eventsData] = await Promise.all([
-        activitiesService.getById(activityId),
-        stagesService.getAll(),
-        commentsService.getByActivity(activityId),
-        activitiesService.getEvents(activityId).catch(() => [] as ActivityEvent[]),
-      ]);
+      const [activityData, stagesData, commentsData, eventsPage] =
+        await Promise.all([
+          activitiesService.getById(activityId),
+          stagesService.getAll(),
+          commentsService.getByActivity(activityId),
+          activitiesService
+            .getEventsPage(activityId, 1, 25)
+            .catch(() => ({ data: [], meta: null as PageMeta | null })),
+        ]);
       setActivity(activityData as ActivityFull);
       setStages(stagesData);
       setComments(commentsData);
-      setEvents(eventsData);
+      setEvents(eventsPage.data);
+      setEventsMeta(eventsPage.meta);
     } catch {
       toast.error('No se pudieron cargar los datos de la actividad');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMoreEvents = async () => {
+    if (!eventsMeta?.hasNextPage || loadingMoreEvents) return;
+    setLoadingMoreEvents(true);
+    try {
+      const next = await activitiesService.getEventsPage(
+        activityId,
+        eventsMeta.page + 1,
+        eventsMeta.limit,
+      );
+      // Dedup por id por si entre páginas se crearon eventos nuevos al inicio
+      setEvents((prev) => {
+        const seen = new Set(prev.map((e) => e.id));
+        return [...prev, ...next.data.filter((e) => !seen.has(e.id))];
+      });
+      setEventsMeta(next.meta);
+    } catch {
+      toast.error('No se pudieron cargar más eventos');
+    } finally {
+      setLoadingMoreEvents(false);
+    }
+  };
+
+  /** Si faltan eventos por cargar (paginación) los trae todos antes de exportar. */
+  const fetchAllEventsForExport = async (): Promise<ActivityEvent[]> => {
+    if (!eventsMeta || !eventsMeta.hasNextPage) return events;
+    try {
+      return await activitiesService.getEvents(activityId);
+    } catch {
+      return events;
     }
   };
 
@@ -959,11 +1197,11 @@ export default function ActivityDetailPage() {
     setDeleting(true);
     try {
       await activitiesService.delete(activityId);
-      toast.success('Actividad eliminada');
+      toast.success('Actividad archivada');
       router.push('/activities');
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : 'No se pudo eliminar la actividad',
+        err instanceof Error ? err.message : 'No se pudo archivar la actividad',
       );
       setDeleting(false);
       setShowDeleteConfirm(false);
@@ -1009,8 +1247,40 @@ export default function ActivityDetailPage() {
   const createdEvent = sortedEvents.find((e) => e.type === 'CREATED');
   const lastEvent = sortedEvents[sortedEvents.length - 1];
 
+  const isArchived = activity.isActive === false;
+
   return (
     <div className="space-y-6">
+      {isArchived && (
+        <div
+          role="alert"
+          className="flex items-start gap-3 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-r-lg"
+        >
+          <svg
+            className="w-5 h-5 text-yellow-600 shrink-0 mt-0.5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
+          </svg>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-yellow-800">
+              Actividad archivada
+            </p>
+            <p className="text-xs text-yellow-700 mt-0.5">
+              Esta actividad fue archivada y no admite cambios. Se conserva
+              visible sólo para auditoría — todo su historial sigue intacto.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Sticky compact bar (visible al scrollear más allá del hero) */}
       <div
         className={cn(
@@ -1027,7 +1297,7 @@ export default function ActivityDetailPage() {
               {activity.title}
             </h2>
             <div className="hidden sm:flex items-center gap-2 shrink-0">
-              {can('stagechange:create') && (
+              {!isArchived && can('stagechange:create') && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -1036,7 +1306,7 @@ export default function ActivityDetailPage() {
                   Solicitar cambio
                 </Button>
               )}
-              {can('activity:update') && (
+              {!isArchived && can('activity:update') && (
                 <Button size="sm" variant="ghost" onClick={openEditModal}>
                   Editar
                 </Button>
@@ -1048,6 +1318,7 @@ export default function ActivityDetailPage() {
 
       {/* HERO */}
       <div
+        data-tour="detail-hero"
         className="bg-white border border-accent-200 rounded-2xl shadow-sm overflow-hidden border-l-4"
         style={{ borderLeftColor: activity.currentStage?.color || '#9CA3AF' }}
       >
@@ -1084,9 +1355,9 @@ export default function ActivityDetailPage() {
                 Editar
               </Button>
             )}
-            {can('activity:delete') && (
+            {!isArchived && can('activity:delete') && (
               <Button variant="danger" size="sm" onClick={() => setShowDeleteConfirm(true)}>
-                Eliminar
+                Archivar
               </Button>
             )}
           </div>
@@ -1138,12 +1409,15 @@ export default function ActivityDetailPage() {
 
         {/* Stepper de etapas */}
         {sortedStages.length > 0 && (
-          <div className="px-6 pb-5 pt-4 border-t border-accent-100 bg-accent-50/40">
+          <div
+            data-tour="detail-stepper"
+            className="px-6 pb-5 pt-4 border-t border-accent-100 bg-accent-50/40"
+          >
             <div className="flex items-center justify-between gap-3 mb-3">
               <p className="text-xs font-semibold tracking-wider uppercase text-accent-500">
                 Flujo
               </p>
-              {can('stagechange:create') && (
+              {!isArchived && can('stagechange:create') && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -1211,7 +1485,7 @@ export default function ActivityDetailPage() {
         {/* Columna principal */}
         <div className="lg:col-span-2 space-y-6 order-2 lg:order-1">
           {/* Descripción */}
-          <Card>
+          <Card data-tour="detail-description">
             <CardHeader>
               <h2 className="text-lg font-semibold text-accent-900">Descripción</h2>
             </CardHeader>
@@ -1235,7 +1509,7 @@ export default function ActivityDetailPage() {
           </Card>
 
           {/* Comentarios */}
-          <Card>
+          <Card data-tour="detail-comments">
             <CardHeader>
               <h2 className="text-lg font-semibold text-accent-900">
                 Comentarios ({comments.length})
@@ -1345,7 +1619,7 @@ export default function ActivityDetailPage() {
                 );
               })}
 
-              {can('comment:create') && (
+              {!isArchived && can('comment:create') && (
                 <form
                   onSubmit={handleAddComment}
                   className="flex gap-3 pt-4 border-t border-accent-200"
@@ -1676,7 +1950,7 @@ export default function ActivityDetailPage() {
           </Card>
 
           {/* Trazabilidad */}
-          <Card>
+          <Card data-tour="detail-timeline">
             <CardHeader>
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -1689,47 +1963,87 @@ export default function ActivityDetailPage() {
                   </p>
                 </div>
                 {events.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const safeTitle = activity.title
-                        .replace(/[^a-z0-9-_]+/gi, '-')
-                        .replace(/^-+|-+$/g, '')
-                        .slice(0, 60) || 'actividad';
-                      downloadCsv(
-                        `trazabilidad-${safeTitle}.csv`,
-                        eventsToCsv(activity.title, events),
-                      );
-                    }}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-accent-700 bg-accent-50 hover:bg-accent-100 border border-accent-200 rounded-lg transition-colors shrink-0"
-                    title="Descargar CSV con todos los eventos"
-                  >
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const all = await fetchAllEventsForExport();
+                        const safeTitle = activity.title
+                          .replace(/[^a-z0-9-_]+/gi, '-')
+                          .replace(/^-+|-+$/g, '')
+                          .slice(0, 60) || 'actividad';
+                        downloadCsv(
+                          `trazabilidad-${safeTitle}.csv`,
+                          eventsToCsv(activity.title, all),
+                        );
+                      }}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-accent-700 bg-accent-50 hover:bg-accent-100 border border-accent-200 rounded-lg transition-colors"
+                      title="Descargar CSV con TODOS los eventos (carga las páginas restantes)"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                      />
-                    </svg>
-                    Exportar CSV
-                  </button>
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                        />
+                      </svg>
+                      CSV
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const all = await fetchAllEventsForExport();
+                          await exportTimelinePdf(activity, all);
+                        } catch {
+                          toast.error('No se pudo generar el PDF');
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-white bg-primary-600 hover:bg-primary-700 border border-primary-700 rounded-lg transition-colors"
+                      title="Descargar PDF institucional con todos los eventos"
+                    >
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                      PDF
+                    </button>
+                  </div>
                 )}
               </div>
             </CardHeader>
             <CardContent>
-              <Timeline events={events} />
+              <Timeline
+                events={events}
+                hasMore={!!eventsMeta?.hasNextPage}
+                loadingMore={loadingMoreEvents}
+                onLoadMore={loadMoreEvents}
+                total={eventsMeta?.total}
+              />
             </CardContent>
           </Card>
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-6 order-1 lg:order-2">
+        <div
+          data-tour="detail-sidebar"
+          className="space-y-6 order-1 lg:order-2"
+        >
           <Card>
             <CardContent className="p-0 divide-y divide-accent-100">
               {/* Asignados */}
@@ -2334,9 +2648,9 @@ export default function ActivityDetailPage() {
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
         onConfirm={handleDelete}
-        title="Eliminar actividad"
-        message="Esta acción no se puede deshacer. ¿Deseas eliminar esta actividad?"
-        confirmText="Eliminar"
+        title="Archivar actividad"
+        message="La actividad se marcará como archivada. Su historial completo se conserva para auditoría, pero no aparecerá en los listados ni admitirá cambios."
+        confirmText="Archivar"
         variant="danger"
         loading={deleting}
       />
