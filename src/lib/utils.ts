@@ -42,6 +42,21 @@ export function relativeTime(date: string | Date) {
   return `hace ${years} ${years === 1 ? 'año' : 'años'}`;
 }
 
+/** Duración legible a partir de milisegundos ("2 d 3 h", "45 min", "—"). */
+export function formatDuration(ms: number): string {
+  if (!ms || ms <= 0) return '—';
+  const min = Math.floor(ms / 60000);
+  if (min < 60) return `${min} min`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) {
+    const remMin = min % 60;
+    return remMin ? `${hr} h ${remMin} min` : `${hr} h`;
+  }
+  const days = Math.floor(hr / 24);
+  const remHr = hr % 24;
+  return remHr ? `${days} d ${remHr} h` : `${days} d`;
+}
+
 export function getInitials(name: string) {
   return name
     .split(' ')

@@ -17,7 +17,7 @@ export const viewport: Viewport = {
   // y para que las safe-area-insets funcionen.
   viewportFit: "cover",
   themeColor: "#00923f",
-  colorScheme: "light",
+  colorScheme: "light dark",
 };
 
 export const metadata: Metadata = {
@@ -120,6 +120,12 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="TrazApp" />
         <meta name="geo.region" content="CO-CAQ" />
         <meta name="geo.placename" content="Florencia, Caquetá" />
+        {/* Anti-FOUC: fija el tema antes del primer paint para evitar parpadeo */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('trazapp-theme');if(t==='dark'||(!t&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark');}}catch(e){}})();`,
+          }}
+        />
       </head>
       <body className={`${onest.variable} font-sans antialiased`} suppressHydrationWarning>
         <Providers>{children}</Providers>

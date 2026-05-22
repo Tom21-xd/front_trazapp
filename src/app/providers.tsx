@@ -3,6 +3,7 @@
 import { type ReactNode } from 'react';
 import { ToastProvider } from '@/components/ui';
 import { PWAInstall, useServiceWorker } from '@/components/PWAInstall';
+import { ThemeProvider } from '@/store/ThemeContext';
 
 function ServiceWorkerRegistration() {
   useServiceWorker();
@@ -15,10 +16,12 @@ interface ProvidersProps {
 
 export function Providers({ children }: ProvidersProps) {
   return (
-    <ToastProvider>
-      <ServiceWorkerRegistration />
-      {children}
-      <PWAInstall />
-    </ToastProvider>
+    <ThemeProvider>
+      <ToastProvider>
+        <ServiceWorkerRegistration />
+        {children}
+        <PWAInstall />
+      </ToastProvider>
+    </ThemeProvider>
   );
 }

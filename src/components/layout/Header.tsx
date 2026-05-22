@@ -6,6 +6,7 @@ import { useAuthContext } from '@/store/AuthContext';
 import { Avatar } from '@/components/ui';
 import { NotificationBell } from './NotificationBell';
 import { TourLauncher } from './TourLauncher';
+import { ThemeToggle } from './ThemeToggle';
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -38,6 +39,7 @@ export function Header({ onMenuClick }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-1 sm:gap-2">
+        <ThemeToggle />
         <TourLauncher />
         <NotificationBell />
         <div className="relative">

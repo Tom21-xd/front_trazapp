@@ -5,6 +5,7 @@ import {
   formatDateTime,
   getInitials,
   relativeTime,
+  formatDuration,
   priorityColors,
   statusColors,
   stageChangeStatusColors,
@@ -85,6 +86,31 @@ describe('relativeTime', () => {
     expect(relativeTime(new Date('2025-05-20T12:00:00Z'))).toBe('hace 1 año');
     // 730 días → ~24 meses → 2 años
     expect(relativeTime(new Date('2024-05-21T12:00:00Z'))).toBe('hace 2 años');
+  });
+});
+
+describe('formatDuration', () => {
+  const MIN = 60_000;
+  const HOUR = 60 * MIN;
+  const DAY = 24 * HOUR;
+
+  it('devuelve "—" para 0 o negativos', () => {
+    expect(formatDuration(0)).toBe('—');
+    expect(formatDuration(-100)).toBe('—');
+  });
+
+  it('formatea minutos', () => {
+    expect(formatDuration(45 * MIN)).toBe('45 min');
+  });
+
+  it('formatea horas con y sin minutos', () => {
+    expect(formatDuration(3 * HOUR)).toBe('3 h');
+    expect(formatDuration(2 * HOUR + 30 * MIN)).toBe('2 h 30 min');
+  });
+
+  it('formatea días con y sin horas', () => {
+    expect(formatDuration(2 * DAY)).toBe('2 d');
+    expect(formatDuration(3 * DAY + 5 * HOUR)).toBe('3 d 5 h');
   });
 });
 
