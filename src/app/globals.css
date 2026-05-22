@@ -81,6 +81,16 @@ html {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Red de seguridad global: ninguna vista debe provocar scroll horizontal de
+   página en móvil/PWA. `clip` recorta el desborde sin crear un contenedor de
+   scroll (no rompe position: sticky ni el menú lateral deslizable). */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden; /* fallback para Safari iOS < 16 */
+  overflow-x: clip; /* navegadores modernos: no crea contenedor de scroll */
+}
+
 /* Evita el zoom automático de iOS al enfocar inputs (< 16px) */
 @supports (-webkit-touch-callout: none) {
   input,

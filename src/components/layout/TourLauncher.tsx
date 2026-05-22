@@ -74,7 +74,8 @@ export function TourLauncher() {
     };
     updatePos();
 
-    const onDocClick = (e: MouseEvent) => {
+    // `pointerdown` (no `mousedown`) para cierre fiable en táctil/PWA.
+    const onDocPointer = (e: PointerEvent) => {
       const target = e.target as Node;
       if (rootRef.current?.contains(target)) return;
       // El dropdown está portalizado al body, así que lo detectamos por su id
@@ -85,12 +86,12 @@ export function TourLauncher() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
     };
-    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('pointerdown', onDocPointer);
     document.addEventListener('keydown', onKey);
     window.addEventListener('resize', updatePos);
     window.addEventListener('scroll', updatePos, true);
     return () => {
-      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('pointerdown', onDocPointer);
       document.removeEventListener('keydown', onKey);
       window.removeEventListener('resize', updatePos);
       window.removeEventListener('scroll', updatePos, true);

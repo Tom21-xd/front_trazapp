@@ -113,7 +113,8 @@ export function NotificationBell() {
 
   useEffect(() => {
     if (!open) return;
-    const onDocClick = (e: MouseEvent) => {
+    // `pointerdown` (no `mousedown`) para cierre fiable en táctil/PWA.
+    const onDocPointer = (e: PointerEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
@@ -121,10 +122,10 @@ export function NotificationBell() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
     };
-    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('pointerdown', onDocPointer);
     document.addEventListener('keydown', onKey);
     return () => {
-      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('pointerdown', onDocPointer);
       document.removeEventListener('keydown', onKey);
     };
   }, [open]);

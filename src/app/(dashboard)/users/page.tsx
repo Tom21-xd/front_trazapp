@@ -111,8 +111,51 @@ export default function UsersPage() {
           <h2 className="text-lg font-semibold text-accent-900">{meta?.total ?? users.length} usuarios</h2>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-190">
+          {/* Móvil: tarjetas */}
+          <div className="md:hidden divide-y divide-accent-200">
+            {users.map((user) => (
+              <div key={user.id} className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar name={user.name} size="sm" />
+                    <div className="min-w-0">
+                      <p className="font-medium text-accent-900 truncate">{user.name}</p>
+                      <p className="text-xs text-accent-500 truncate">{user.email}</p>
+                    </div>
+                  </div>
+                  <Badge variant={user.isActive ? 'success' : 'danger'}>
+                    {user.isActive ? 'Activo' : 'Inactivo'}
+                  </Badge>
+                </div>
+                <Select
+                  value={user.appRole?.id ?? ''}
+                  onChange={(e) => handleAssignRole(user.id, e.target.value)}
+                  placeholder="Sin rol"
+                  options={[
+                    { value: '', label: 'Sin rol' },
+                    ...roles.map((r) => ({ value: r.id, label: r.name })),
+                  ]}
+                />
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs text-accent-500 truncate">
+                    Último acceso:{' '}
+                    {user.lastLoginAt ? formatDateTime(user.lastLoginAt) : 'Nunca'}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant={user.isActive ? 'danger' : 'primary'}
+                    onClick={() => handleToggleActive(user)}
+                  >
+                    {user.isActive ? 'Desactivar' : 'Activar'}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Escritorio: tabla */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full">
               <thead className="bg-accent-50 border-b border-accent-200">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-semibold text-accent-500 uppercase">Usuario</th>
@@ -133,7 +176,7 @@ export default function UsersPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-accent-600">{user.email}</td>
-                    <td className="px-6 py-4 min-w-50">
+                    <td className="px-6 py-4 min-w-48">
                       <Select
                         value={user.appRole?.id ?? ''}
                         onChange={(e) => handleAssignRole(user.id, e.target.value)}

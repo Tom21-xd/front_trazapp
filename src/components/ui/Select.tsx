@@ -89,7 +89,10 @@ export function Select({
 
   useEffect(() => {
     if (!open) return;
-    const onDocClick = (e: MouseEvent) => {
+    // `pointerdown` unifica mouse + touch + pen y se dispara de forma fiable en
+    // táctil (iOS/PWA no sintetiza `mousedown` al tocar fuera de elementos no
+    // interactivos, lo que dejaba el dropdown "pegado" o con el foco raro).
+    const onDocPointer = (e: PointerEvent) => {
       const target = e.target as Node;
       if (triggerRef.current?.contains(target)) return;
       if (listRef.current?.contains(target)) return;
@@ -98,10 +101,10 @@ export function Select({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
     };
-    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('pointerdown', onDocPointer);
     document.addEventListener('keydown', onKey);
     return () => {
-      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('pointerdown', onDocPointer);
       document.removeEventListener('keydown', onKey);
     };
   }, [open]);
@@ -109,6 +112,9 @@ export function Select({
   const choose = (val: string) => {
     onChange?.({ target: { value: val } });
     setOpen(false);
+    // Devolver el foco al trigger: al desmontarse el portal, el foco quedaba
+    // "perdido" en el body (problema notorio en táctil/PWA).
+    triggerRef.current?.focus();
   };
 
   const handleTriggerKey = (e: React.KeyboardEvent) => {
@@ -156,7 +162,7 @@ export function Select({
           onClick={() => !disabled && setOpen((o) => !o)}
           onKeyDown={handleTriggerKey}
           className={cn(
-            'w-full flex items-center justify-between gap-2 px-4 py-2 rounded-lg border text-left',
+            'w-full flex items-center justify-between gap-2 px-4 py-2 rounded-lg border text-left touch-manipulation select-none',
             'bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors',
             'disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-accent-100',
             error
@@ -228,7 +234,7 @@ export function Select({
                     onMouseEnter={() => setActiveIndex(idx)}
                     onClick={() => choose(opt.value)}
                     className={cn(
-                      'w-full px-4 py-2 text-sm cursor-pointer flex items-center justify-between gap-2 text-left',
+                      'w-full px-4 py-2.5 text-sm cursor-pointer flex items-center justify-between gap-2 text-left touch-manipulation',
                       isActive ? 'bg-primary-50' : 'hover:bg-accent-50',
                       isSelected
                         ? 'text-primary-700 font-medium'

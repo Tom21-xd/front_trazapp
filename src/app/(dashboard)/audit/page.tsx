@@ -122,8 +122,78 @@ export default function AuditPage() {
           {logs.length === 0 ? (
             <p className="p-6 text-center text-accent-500">Sin registros</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-190">
+            <>
+            {/* Móvil: tarjetas */}
+            <div className="md:hidden divide-y divide-accent-200">
+              {logs.map((log) => {
+                const open = expanded.has(log.id);
+                const detail = hasDetail(log);
+                return (
+                  <div key={log.id} className="p-4 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <Badge
+                        className={
+                          ACTION_VARIANT[log.action] ||
+                          'bg-accent-100 text-accent-700'
+                        }
+                        size="sm"
+                      >
+                        {ACTION_LABELS[log.action] || log.action}
+                      </Badge>
+                      <span className="text-xs text-accent-400 shrink-0">
+                        {relativeTime(log.createdAt)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-accent-700">
+                      <span className="font-medium">{log.entityType}</span>
+                      <span className="text-accent-400 font-mono text-xs">
+                        {' · '}
+                        {log.entityId.slice(0, 8)}
+                      </span>
+                    </p>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-accent-500">
+                      <span>{log.user?.name || '—'}</span>
+                      {log.ipAddress && (
+                        <span className="font-mono text-accent-400">
+                          {log.ipAddress}
+                        </span>
+                      )}
+                      <span className="text-accent-400">
+                        {formatDateTime(log.createdAt)}
+                      </span>
+                    </div>
+                    {detail && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => toggle(log.id)}
+                          className="text-xs font-medium text-primary-600"
+                        >
+                          {open ? 'Ocultar detalle' : 'Ver detalle'}
+                        </button>
+                        {open && (
+                          <div className="pt-1">
+                            <p className="text-[11px] font-semibold tracking-wider uppercase text-accent-500 mb-2">
+                              Datos enviados
+                            </p>
+                            <PrettyJson data={log.newData} />
+                            {log.userAgent && (
+                              <p className="mt-2 text-[11px] text-accent-400 break-all">
+                                UA: {log.userAgent}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Escritorio: tabla */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full">
                 <thead className="bg-accent-50 border-b border-accent-200">
                   <tr>
                     <th className="w-10">
@@ -223,6 +293,7 @@ export default function AuditPage() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </CardContent>
       </Card>
