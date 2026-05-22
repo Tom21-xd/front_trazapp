@@ -15,6 +15,7 @@ interface AuthContextType {
   login: (data: LoginRequest) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -62,6 +63,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push('/login');
   };
 
+  const refreshUser = async () => {
+    try {
+      const profile = await authService.getProfile();
+      setUser(profile);
+    } catch {
+      /* mantenemos el user actual si falla el refresh */
+    }
+  };
+
   const permissions = user?.permissions ?? [];
   const can = (permission: string) =>
     permissions.includes('*') || permissions.includes(permission);
@@ -80,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
+        refreshUser,
       }}
     >
       {children}

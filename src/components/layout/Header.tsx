@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useAuthContext } from '@/store/AuthContext';
 import { Avatar } from '@/components/ui';
 import { NotificationBell } from './NotificationBell';
@@ -45,7 +46,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           onClick={() => setShowMenu(!showMenu)}
           className="flex items-center gap-2 lg:gap-3 p-1.5 lg:p-2 rounded-lg hover:bg-accent-50 transition-colors"
         >
-          <Avatar name={user?.name || 'U'} size="sm" />
+          <Avatar name={user?.name || 'U'} src={user?.avatar ?? undefined} size="sm" />
           <div className="text-left hidden md:block">
             <p className="text-sm font-medium text-accent-900 truncate max-w-[120px]">{user?.name}</p>
             <p className="text-xs text-accent-500">{user?.appRoleName || 'Sin rol'}</p>
@@ -64,6 +65,16 @@ export function Header({ onMenuClick }: HeaderProps) {
                 <p className="text-xs text-accent-500 truncate">{user?.email}</p>
               </div>
               <div className="p-2">
+                <Link
+                  href="/profile"
+                  onClick={() => setShowMenu(false)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-accent-700 hover:bg-accent-50 rounded-lg transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  Mi perfil
+                </Link>
                 <button
                   type="button"
                   onClick={logout}

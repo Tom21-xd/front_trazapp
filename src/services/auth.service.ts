@@ -26,6 +26,24 @@ export const authService = {
     return api.get<User>('/auth/me');
   },
 
+  async updateProfile(data: {
+    name?: string;
+    phone?: string;
+    avatar?: string;
+  }): Promise<User> {
+    return api.patch<User>('/auth/me', data);
+  },
+
+  async changePassword(
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    return api.post<{ message: string }>('/auth/change-password', {
+      currentPassword,
+      newPassword,
+    });
+  },
+
   async forgotPassword(email: string): Promise<{ message: string }> {
     return api.post<{ message: string }>('/auth/forgot-password', { email });
   },

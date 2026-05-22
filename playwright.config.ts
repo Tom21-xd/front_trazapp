@@ -26,9 +26,13 @@ export default defineConfig({
   },
 
   projects: [
+    // Autentica una vez como admin y deja el storageState listo.
+    { name: 'setup', testMatch: /auth\.setup\.ts/ },
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      dependsOn: ['setup'],
+      testIgnore: /auth\.setup\.ts/,
     },
   ],
 
