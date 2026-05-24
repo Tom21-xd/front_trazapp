@@ -65,9 +65,9 @@ export function Modal({
         )}
       >
         {(title || icon) && (
-          <div className="flex items-start gap-4 px-6 py-5 border-b border-accent-100 shrink-0">
+          <div className="flex items-start gap-3 sm:gap-4 px-4 sm:px-6 py-4 sm:py-5 border-b border-accent-100 shrink-0">
             {icon && (
-              <div className="shrink-0 w-11 h-11 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center">
+              <div className="shrink-0 w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center">
                 {icon}
               </div>
             )}
@@ -105,9 +105,13 @@ export function Modal({
             </button>
           </div>
         )}
-        <div className="px-6 pt-6 pb-8 overflow-y-auto flex-1">{children}</div>
+        <div className="px-4 sm:px-6 pt-5 sm:pt-6 pb-6 sm:pb-8 overflow-y-auto flex-1">
+          {children}
+        </div>
         {footer && (
-          <div className="px-6 py-4 border-t border-accent-100 bg-accent-50/60 rounded-b-2xl flex items-center justify-end gap-3 shrink-0">
+          // Móvil: botones apilados (con el principal arriba por `flex-col-reverse`) y a ancho completo
+          // para mejor tap target; sm+: alineados a la derecha en horizontal.
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-accent-100 bg-accent-50/60 rounded-b-2xl flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-3 shrink-0 [&>button]:w-full sm:[&>button]:w-auto">
             {footer}
           </div>
         )}

@@ -33,8 +33,14 @@ export function Header({ onMenuClick }: HeaderProps) {
           </svg>
         </button>
 
-        <h1 className="text-sm lg:text-lg font-semibold text-accent-900 truncate max-w-[150px] sm:max-w-none">
-          Bienvenido, {user?.name?.split(' ')[0] || 'Usuario'}
+        <h1 className="text-sm lg:text-lg font-semibold text-accent-900 truncate">
+          {/* En móvil sólo el nombre (el saludo largo no cabe con tantos iconos); sm+ saludo completo */}
+          <span className="sm:hidden">
+            Hola, {user?.name?.split(' ')[0] || 'Usuario'}
+          </span>
+          <span className="hidden sm:inline">
+            Bienvenido, {user?.name?.split(' ')[0] || 'Usuario'}
+          </span>
         </h1>
       </div>
 
@@ -50,7 +56,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         >
           <Avatar name={user?.name || 'U'} src={user?.avatar ?? undefined} size="sm" />
           <div className="text-left hidden md:block">
-            <p className="text-sm font-medium text-accent-900 truncate max-w-[120px]">{user?.name}</p>
+            <p className="text-sm font-medium text-accent-900 truncate max-w-30">{user?.name}</p>
             <p className="text-xs text-accent-500">{user?.appRoleName || 'Sin rol'}</p>
           </div>
           <svg className="w-4 h-4 text-accent-500 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">

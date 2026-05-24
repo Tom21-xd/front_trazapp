@@ -270,16 +270,19 @@ export default function DashboardPage() {
       {orderedStages.length > 0 && (
         <Card data-tour="dashboard-stages">
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-accent-900">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+              <div className="min-w-0">
+                <h2 className="text-base sm:text-lg font-semibold text-accent-900">
                   Distribución por etapa
                 </h2>
                 <p className="text-xs text-accent-500">
                   {totalForBar} actividades activas en {orderedStages.length} etapas
                 </p>
               </div>
-              <Link href="/board" className="text-xs font-medium text-primary-700 hover:text-primary-800">
+              <Link
+                href="/board"
+                className="text-xs font-medium text-primary-700 hover:text-primary-800 shrink-0"
+              >
                 Abrir tablero →
               </Link>
             </div>
@@ -548,10 +551,12 @@ function KpiCard({ label, value, icon, accent, href }: KpiCardProps) {
     orange: 'bg-orange-100 text-orange-700',
   };
   const inner = (
-    <div className="p-4 lg:p-5 flex items-center gap-3 lg:gap-4">
+    // Móvil: icono arriba + texto debajo (más espacio para el label, sin truncar);
+    // sm+ vuelve al layout horizontal compacto.
+    <div className="p-3 lg:p-5 flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3 lg:gap-4">
       <div
         className={cn(
-          'w-10 h-10 lg:w-12 lg:h-12 rounded-lg flex items-center justify-center shrink-0',
+          'w-9 h-9 lg:w-12 lg:h-12 rounded-lg flex items-center justify-center shrink-0',
           palette[accent],
         )}
       >
@@ -561,7 +566,7 @@ function KpiCard({ label, value, icon, accent, href }: KpiCardProps) {
         <p className="text-xl lg:text-2xl font-bold text-accent-900 leading-none">
           {value}
         </p>
-        <p className="text-xs lg:text-sm text-accent-500 mt-1 truncate">
+        <p className="text-xs lg:text-sm text-accent-500 mt-1 leading-tight">
           {label}
         </p>
       </div>

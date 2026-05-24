@@ -70,7 +70,7 @@ export default function ReportsPage() {
       {/* Cabecera */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-accent-900">Reportes</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-accent-900">Reportes</h1>
           <p className="text-accent-500 text-sm mt-1">
             Tiempo que las actividades pasan en cada etapa del flujo.
           </p>
@@ -88,16 +88,19 @@ export default function ReportsPage() {
             />
           </div>
           <div className="flex gap-2">
+            {/* En móvil cada botón ocupa la mitad para llenar el ancho disponible */}
             <Button
               variant="secondary"
               onClick={() => handleExport('csv')}
               disabled={!report || report.stages.length === 0 || exporting}
+              className="flex-1 sm:flex-none"
             >
               CSV
             </Button>
             <Button
               onClick={() => handleExport('pdf')}
               disabled={!report || report.stages.length === 0 || exporting}
+              className="flex-1 sm:flex-none"
             >
               Exportar PDF
             </Button>
